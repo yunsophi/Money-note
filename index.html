@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>お金ノート</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
@@ -124,6 +124,9 @@ input[type=checkbox]:disabled{opacity:.45}
 /* 月別の表 */
 .mgrid{display:grid;grid-template-columns:1fr auto auto;gap:10px 22px;align-items:baseline}
 .mgrid>b,.mgrid>.sub{text-align:right;min-width:78px}
+/* 拡大・縮小をさせない（ピンチ、ダブルタップ、入力欄を押したときの自動拡大） */
+html{touch-action:pan-x pan-y;-webkit-text-size-adjust:100%;text-size-adjust:100%}
+input,select,textarea{font-size:16px}
 </style>
 <script>
 // 表示モード（自動／明るい／暗い）。自動は端末の設定に合わせ、選んだ場合はそれを優先する。端末ごとに覚える。
@@ -684,6 +687,8 @@ window.importData=el=>{
   r.readAsText(f);
 };
 render();
+// iPhoneのSafariは、meta指定だけではピンチ拡大を止められないため、ジェスチャー自体を止める
+['gesturestart','gesturechange','gestureend'].forEach(ev=>document.addEventListener(ev,e=>e.preventDefault()));
 // ホーム画面に追加したときに、端末にデータを消さないようお願いする／圏外でも開けるようにする
 try{if(navigator.storage&&navigator.storage.persist)navigator.storage.persist()}catch(e){}
 if('serviceWorker' in navigator&&/^https?:$/.test(location.protocol))navigator.serviceWorker.register('sw.js').catch(()=>{});
