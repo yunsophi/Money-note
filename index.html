@@ -75,21 +75,26 @@ nav button:active{transform:scale(.92)}
 nav .ind{background:var(--accent-bg);box-shadow:0 1px 0 var(--glass-hi) inset}
 @media (prefers-reduced-motion:reduce){button{transition:none}.ind{transition:none}}
 main{padding-top:calc(20px + env(safe-area-inset-top))}
-/* ダークモード：文字と面の差をはっきりさせる */
+/* ダークモード：茶色みのない、ニュートラルなグレーで、文字と面の差をはっきりさせる */
 @media (prefers-color-scheme:dark){
-:root{--bg:#1b1b19;--card:#292926;--text:#f6f3ec;--sub:#b9b4a9;--line:#3d3c37;--accent:#a6dbc3;--accent-bg:#2f453b;--ink:#f6f3ec;--red:#f4a094;--green:#a6dbc3;--glass:rgba(66,66,60,.70);--glass-line:rgba(255,255,255,.16);--glass-hi:rgba(255,255,255,.20);--shadow:0 8px 24px rgba(0,0,0,.35)}
-body{background-image:radial-gradient(520px 380px at 90% -4%,rgba(143,191,169,.22),transparent 65%),radial-gradient(460px 380px at -8% 38%,rgba(220,170,120,.14),transparent 65%)}
+:root{--bg:#17181a;--card:#26272a;--text:#f5f6f7;--sub:#b4b8be;--line:#3a3c40;--accent:#a6dbc3;--accent-bg:#2b4038;--ink:#f5f6f7;--red:#f4a094;--green:#a6dbc3;--glass:rgba(62,64,68,.70);--glass-line:rgba(255,255,255,.16);--glass-hi:rgba(255,255,255,.20);--shadow:0 8px 24px rgba(0,0,0,.35)}
+body{background-image:radial-gradient(520px 380px at 90% -4%,rgba(143,191,169,.14),transparent 65%),radial-gradient(500px 400px at -8% 60%,rgba(110,140,200,.10),transparent 65%)}
 input,select{background:rgba(255,255,255,.08);color:var(--text)}
-input::placeholder{color:#9a958a}
+input::placeholder{color:#9a9ea4}
 .seg{background:rgba(255,255,255,.08)}
 .seg button.on{color:var(--text)}
-nav{background:rgba(52,52,47,.82)}
-button.ghost{color:#d4cfc4}
-.tag{background:#365246;color:#c4eadb}
+nav{background:rgba(46,47,50,.84)}
+button.ghost{color:#d3d6da}
+.tag{background:#33493f;color:#c4eadb}
 .sub{color:var(--sub)}
-.bar{background:#3a4a42}
+.bar{background:#36443d}
 button{box-shadow:0 6px 16px rgba(0,0,0,.35),inset 0 1px 0 rgba(255,255,255,.35)}
 }
+/* 日付欄などが、カードの枠からはみ出さないようにする（iPhoneのSafari対策） */
+.inline>*{min-width:0}
+input[type=date]{-webkit-appearance:none;appearance:none;display:block;width:100%;min-width:0;max-width:100%;height:46px;text-align:left;line-height:normal}
+input[type=date]::-webkit-date-and-time-value{text-align:left;min-height:1.2em}
+input[type=date]::-webkit-calendar-picker-indicator{margin:0}
 </style>
 </head>
 <body>
