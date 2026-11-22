@@ -116,6 +116,11 @@ nav button:active,.seg button:active{transition:transform .05s ease-out;transfor
 /* 緑の印は transform で動かし、素早く着く */
 .ind{left:0;top:0;transition:transform .12s cubic-bezier(.2,.9,.3,1);will-change:transform}
 @media (prefers-reduced-motion:reduce){.ind{transition:none}}
+/* チェックボックス：丸くならないよう、角の丸い四角にして、チェックを自前で描く */
+input[type=checkbox]{-webkit-appearance:none;appearance:none;width:22px!important;height:22px;min-width:22px;padding:0;margin:0;flex:0 0 22px;border-radius:7px;border:1.5px solid var(--sub);background:transparent;display:grid;place-content:center;cursor:pointer;transition:background .12s,border-color .12s}
+input[type=checkbox]:checked{background:var(--accent);border-color:var(--accent)}
+input[type=checkbox]:checked::after{content:"";width:6px;height:11px;border:solid var(--card);border-width:0 2.4px 2.4px 0;transform:translateY(-1px) rotate(45deg)}
+input[type=checkbox]:disabled{opacity:.45}
 </style>
 <script>
 // 表示モード（自動／明るい／暗い）。自動は端末の設定に合わせ、選んだ場合はそれを優先する。端末ごとに覚える。
@@ -195,8 +200,9 @@ const acc=id=>S.accounts.find(a=>a.id===id);
 const cat=id=>S.categories.find(c=>c.id===id);
 const accName=id=>acc(id)?.name??'(削除済)';
 const catName=id=>cat(id)?.name??'未分類';
-// 立替は支出に数えない。返金が足りなかった分だけ支出にする
-const spendOf=t=>t.advance?(t.reimbursed?Math.max(0,t.amount-(t.received||0)):0):t.amount;
+// 立替分は支出に数えない。自分の分と、返金が足りなかった分だけ支出にする
+const advOf=t=>t.advance?(t.advAmt!=null?Math.min(t.advAmt,t.amount):t.amount):0; // 立替分（未入力なら全額）
+const spendOf=t=>(t.amount-advOf(t))+(t.reimbursed?Math.max(0,advOf(t)-(t.received||0)):0); // 自分の分＋返金が足りなかった分
 const methodsOf=a=>(a&&a.methods)||[];
 const curAcc=id=>acc(id||S.accounts[0]?.id);
 // 支出の支払い方法（記録に指定がなければ口座出金）
@@ -288,13 +294,13 @@ function vAcc(id){
 function advHtml(){
   const list=S.tx.filter(t=>t.type==='expense'&&t.advance&&!t.reimbursed).sort((a,b)=>b.date.localeCompare(a.date)||b.ts-a.ts);
   if(!list.length)return '';
-  const sum=list.reduce((s,t)=>s+t.amount,0);
+  const sum=list.reduce((s,t)=>s+advOf(t),0);
   return `<h2>立替中（返ってくるお金）</h2><div class="card"><div class="row"><span>返ってくる予定の合計</span><b>${yen(sum)}</b></div>${list.map(t=>reimbEdit&&reimbEdit.id===t.id?
-    `<div style="padding:10px 0;border-bottom:1px solid var(--line)"><div class="sub">${esc(t.memo||catName(t.categoryId))} ${yen(t.amount)} が返ってきた</div>
-      <label>受け取った金額</label><input id="r_amt" type="number" inputmode="numeric" value="${t.amount}">
+    `<div style="padding:10px 0;border-bottom:1px solid var(--line)"><div class="sub">${esc(t.memo||catName(t.categoryId))} ${yen(advOf(t))} が返ってきた</div>
+      <label>受け取った金額</label><input id="r_amt" type="number" inputmode="numeric" value="${advOf(t)}">
       <label>入金先</label><select id="r_acc">${opts(S.accounts,t.accountId)}</select>
       <div class="inline" style="margin-top:12px"><button onclick="doReimb('${t.id}')">受け取った</button><button class="ghost" style="padding:10px" onclick="reimbEdit=null;render()">やめる</button></div></div>`
-    :`<div class="row"><div>${t.date.slice(5).replace('-','/')} ${esc(t.memo||catName(t.categoryId))}<div class="sub">${esc(accName(t.accountId))}${methodOf(t)?' ・ '+esc(methodOf(t).name):''}</div></div><div style="display:flex;gap:8px;align-items:center"><span>${yen(t.amount)}</span><button class="ghost" onclick="startReimb('${t.id}')">返ってきた</button></div></div>`).join('')}</div>`;
+    :`<div class="row"><div>${t.date.slice(5).replace('-','/')} ${esc(t.memo||catName(t.categoryId))}<div class="sub">${esc(accName(t.accountId))}${methodOf(t)?' ・ '+esc(methodOf(t).name):''}${advOf(t)<t.amount?' ・ 支払い '+yen(t.amount)+' のうち':''}</div></div><div style="text-align:right"><div>${yen(advOf(t))}</div><div class="actions" style="justify-content:flex-end;margin-top:4px"><button class="ghost" onclick="editTx('${t.id}')">編集</button><button class="ghost" onclick="startReimb('${t.id}')">返ってきた</button></div></div></div>`).join('')}</div>`;
 }
 window.startReimb=id=>{reimbEdit={id};render()};
 window.doReimb=id=>{
@@ -352,14 +358,15 @@ function vRec(){
     <label>${isT?'移動元':'口座・財布'}</label><select id="f_acc" onchange="setAcc()">${opts(S.accounts,f.acc||S.accounts[0]?.id)}</select>
     ${f.type==='expense'&&methodsOf(curAcc(f.acc)).length?`<label>支払い方法</label><select id="f_method">${methodsOf(curAcc(f.acc)).map(m=>`<option value="${m.id}" ${m.id===f.method?'selected':''}>${esc(m.name)}</option>`).join('')}</select>`:''}
     ${f.type==='adjust'?'':isT?`<label>移動先</label><select id="f_to">${opts(holders(),f.to)}</select>`:`<label>カテゴリ</label><select id="f_cat">${opts(catsOf(f.type),f.cat,'（あとで決める）')}</select>`}
-    ${f.type==='expense'?`<label style="display:flex;gap:10px;align-items:center;font-size:14px;color:var(--text);margin-top:16px"><input type="checkbox" id="f_adv" style="width:auto" ${f.adv?'checked':''} ${f.advLocked?'disabled':''}>立替（あとで返ってくるお金）</label><div class="sub" style="margin:2px 2px 0">立替にすると、返ってくるまで今月の支出に数えません。返ってきても、収入にはなりません。</div>`:''}
+    ${f.type==='expense'?`<label style="display:flex;gap:10px;align-items:center;font-size:14px;color:var(--text);margin-top:16px"><input type="checkbox" id="f_adv" onchange="toggleAdv()" ${f.adv?'checked':''} ${f.advLocked?'disabled':''}>立替を含む（あとで返ってくるお金）</label><div class="sub" style="margin:2px 2px 0">立替分は、返ってくるまで支出に数えません。<br>返ってきても、収入にはなりません。</div>
+    ${f.adv?`<label>立替分の金額（任意）</label><input id="f_advamt" type="number" inputmode="numeric" min="0" placeholder="空欄なら、全額を立替にします" value="${f.advAmt??''}" ${f.advLocked?'disabled':''}><div class="sub" style="margin:4px 2px 0">自分の分は含めず、ほかの人の分だけ。<br>あとから編集できます。</div>`:''}`:''}
     <label>日付</label><input id="f_date" type="date" value="${f.date||todayStr()}">
     <label>メモ</label><input id="f_memo" placeholder="例：ランチ" value="${esc(f.memo||'')}">
     <button class="full" onclick="addTx()">${f.editId?'更新':'保存'}</button>
     ${f.editId?'<button class="full ghost" style="padding:10px" onclick="cancelEdit()">編集をやめる</button>':''}
   </div>
   <h2>最近の記録</h2>
-  <div class="card">${recent.length?recent.map(t=>`<div class="row"><div>${t.date.slice(5).replace('-','/')} ${esc(t.memo||(t.type==='transfer'?'移動':t.type==='adjust'?'残高調整':t.type==='reimburse'?'立替の返金':catName(t.categoryId)))}${t.type==='adjust'?'<span class="tag">残高</span>':''}${t.type==='reimburse'?'<span class="tag">返金</span>':''}${t.advance?`<span class="tag">立替${t.reimbursed?'・返金済':''}</span>`:''}<div class="sub">${esc(accName(t.accountId))}${methodOf(t)?' ・ '+esc(methodOf(t).name)+(isCredit(t)?(t.settled?'（引落済）':'（未払い）'):''):''}${t.type==='transfer'?' → '+esc(accName(t.toId)):''}${t.type!=='transfer'&&t.type!=='adjust'&&t.categoryId?' ・ '+esc(catName(t.categoryId)):''}</div></div>
+  <div class="card">${recent.length?recent.map(t=>`<div class="row"><div>${t.date.slice(5).replace('-','/')} ${esc(t.memo||(t.type==='transfer'?'移動':t.type==='adjust'?'残高調整':t.type==='reimburse'?'立替の返金':catName(t.categoryId)))}${t.type==='adjust'?'<span class="tag">残高</span>':''}${t.type==='reimburse'?'<span class="tag">返金</span>':''}${t.advance?`<span class="tag">立替${t.advAmt!=null?' '+yen(t.advAmt):''}${t.reimbursed?'・返金済':''}</span>`:''}<div class="sub">${esc(accName(t.accountId))}${methodOf(t)?' ・ '+esc(methodOf(t).name)+(isCredit(t)?(t.settled?'（引落済）':'（未払い）'):''):''}${t.type==='transfer'?' → '+esc(accName(t.toId)):''}${t.type!=='transfer'&&t.type!=='adjust'&&t.categoryId?' ・ '+esc(catName(t.categoryId)):''}</div></div>
     <div style="text-align:right"><b class="${t.type==='income'||t.type==='reimburse'||(t.type==='adjust'&&t.amount>0)?'pos':''}">${t.type==='income'||t.type==='reimburse'?'+':t.type==='expense'?'-':t.type==='adjust'?(t.amount>=0?'+':'-'):''}${yen(Math.abs(t.amount))}</b><div class="actions" style="justify-content:flex-end">${t.type==='adjust'||t.type==='reimburse'?'':`<button class="ghost" onclick="editTx('${t.id}')">編集</button>`}<button class="ghost" onclick="delTx('${t.id}')">削除</button></div></div></div>`).join(''):'<div class="sub">まだ記録がありません</div>'}</div>`;
 }
 window.addTx=()=>{
@@ -378,7 +385,18 @@ window.addTx=()=>{
     date:document.getElementById('f_date').value||todayStr(),memo:document.getElementById('f_memo').value.trim()};
   if(form.type==='transfer'){t.toId=document.getElementById('f_to').value;if(t.accountId===t.toId)return alert('移動元と移動先が同じです')}
   else t.categoryId=document.getElementById('f_cat').value;
-  if(form.type==='expense'){const m=document.getElementById('f_method');if(m)t.methodId=m.value;if(document.getElementById('f_adv')?.checked||(old&&old.reimbursed&&old.advance))t.advance=true}
+  if(form.type==='expense'){
+    const m=document.getElementById('f_method');if(m)t.methodId=m.value;
+    if(old&&old.reimbursed&&old.advance){t.advance=true;if(old.advAmt!=null)t.advAmt=old.advAmt}
+    else if(document.getElementById('f_adv')?.checked){
+      t.advance=true;
+      const raw=(document.getElementById('f_advamt')?.value??'').trim();
+      if(raw!==''){const n=Math.round(+raw);
+        if(isNaN(n)||n<0)return alert('立替分の金額を正しく入力してください');
+        if(n>amount)return alert('立替分の金額が、支払った金額より大きくなっています');
+        if(n===0)delete t.advance;else t.advAmt=n}
+    }
+  }
   if(old&&old.reimbursed){t.reimbursed=true;t.received=old.received}
   if(old&&old.settled)t.settled=true;
   if(old)S.tx[S.tx.indexOf(old)]=t;else S.tx.push(t);
@@ -387,12 +405,13 @@ window.addTx=()=>{
 };
 // 入力途中の値を保ったまま種類を切り替える
 const capForm=()=>{const v=id=>document.getElementById(id)?.value;
-  return {...form,adv:document.getElementById('f_adv')?document.getElementById('f_adv').checked:form.adv,amount:v('f_amount')??form.amount,date:v('f_date')??form.date,memo:v('f_memo')??form.memo,acc:v('f_acc')||form.acc,cat:v('f_cat')??form.cat,to:v('f_to')??form.to,method:v('f_method')??form.method}};
+  return {...form,adv:document.getElementById('f_adv')?document.getElementById('f_adv').checked:form.adv,advAmt:document.getElementById('f_advamt')?document.getElementById('f_advamt').value:form.advAmt,amount:v('f_amount')??form.amount,date:v('f_date')??form.date,memo:v('f_memo')??form.memo,acc:v('f_acc')||form.acc,cat:v('f_cat')??form.cat,to:v('f_to')??form.to,method:v('f_method')??form.method}};
 window.setType=k=>{form={...capForm(),type:k,cat:''};render()};
+window.toggleAdv=()=>{form=capForm();render()};
 window.setAcc=()=>{form={...capForm(),method:''};render()};
 window.editTx=id=>{
   const t=S.tx.find(x=>x.id===id);if(!t)return;
-  form={type:t.type,acc:t.accountId,cat:t.categoryId,to:t.toId,method:t.methodId,adv:t.advance,advLocked:t.reimbursed,amount:t.amount,date:t.date,memo:t.memo,editId:id};
+  form={type:t.type,acc:t.accountId,cat:t.categoryId,to:t.toId,method:t.methodId,adv:t.advance,advAmt:t.advAmt,advLocked:t.reimbursed,amount:t.amount,date:t.date,memo:t.memo,editId:id};
   tab='rec';render();scrollTo(0,0);
 };
 window.cancelEdit=()=>{form={type:form.type,acc:form.acc,cat:form.cat,to:form.to};render()};
