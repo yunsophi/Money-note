@@ -1,0 +1,500 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>お金ノート</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="お金ノート">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#f4f1ec">
+<style>
+:root{--bg:#f4f1ec;--card:#fffdfa;--text:#2a2926;--sub:#8b867d;--line:#eee9e0;--accent:#4f7a6a;--accent-bg:#e4ece7;--ink:#2a2926;--red:#b5584a;--green:#4f7a6a;--shadow:0 1px 2px rgba(60,50,30,.04),0 10px 28px rgba(60,50,30,.06)}
+@media (prefers-color-scheme:dark){:root{--bg:#141412;--card:#1e1e1b;--text:#ece8e0;--sub:#8f8a80;--line:#2b2a26;--accent:#8fbfa9;--accent-bg:#26332d;--ink:#ece8e0;--red:#e08c7e;--green:#8fbfa9;--shadow:none}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:15px/1.6 -apple-system,"Hiragino Sans","Hiragino Kaku Gothic ProN",sans-serif;padding-bottom:110px;-webkit-font-smoothing:antialiased}
+main{max-width:520px;margin:0 auto;padding:20px}
+h2{font-size:12px;letter-spacing:.1em;margin:34px 4px 10px;color:var(--sub);font-weight:500}
+.card{background:var(--card);border-radius:22px;padding:16px 20px;margin-bottom:14px;box-shadow:var(--shadow)}
+.hero{text-align:center;padding:30px 0 14px;background:transparent;box-shadow:none}
+.hero .label{color:var(--sub);font-size:12px;letter-spacing:.1em}
+.hero .big{font-size:46px;font-weight:300;letter-spacing:-1.5px;font-variant-numeric:tabular-nums;margin:2px 0 8px}
+.neg{color:var(--red)}.pos{color:var(--green)}
+b{font-weight:600;font-variant-numeric:tabular-nums}
+.row{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:12px 0;border-bottom:1px solid var(--line)}
+.row:last-child{border-bottom:0}
+.sub{color:var(--sub);font-size:12.5px}
+.small-row{font-size:14px}
+label{display:block;font-size:12px;color:var(--sub);margin:14px 2px 6px;letter-spacing:.04em}
+input,select{width:100%;padding:12px 14px;border:1px solid transparent;border-radius:14px;background:var(--bg);color:var(--text);font:inherit;outline:none;transition:border-color .15s}
+input:focus,select:focus{border-color:var(--accent)}
+button{font:inherit;border:0;border-radius:999px;padding:10px 18px;background:var(--ink);color:var(--card);cursor:pointer;transition:opacity .15s}
+button:active{opacity:.7}
+button.ghost{background:transparent;color:var(--sub);padding:4px 12px;font-size:12px;border:1px solid var(--line)}
+button.full{width:100%;margin-top:18px;padding:14px;font-weight:600;letter-spacing:.04em}
+.seg{display:flex;gap:6px;background:var(--bg);padding:4px;border-radius:999px}
+.seg button{flex:1;background:transparent;color:var(--sub);padding:8px 4px;font-size:14px}
+.seg button.on{background:var(--card);color:var(--text);font-weight:600;box-shadow:0 1px 4px rgba(0,0,0,.08)}
+nav{position:fixed;bottom:calc(14px + env(safe-area-inset-bottom));left:50%;transform:translateX(-50%);width:calc(100% - 40px);max-width:400px;display:flex;background:var(--card);border-radius:999px;padding:6px;box-shadow:0 6px 30px rgba(40,30,10,.14)}
+nav button{flex:1;background:transparent;color:var(--sub);padding:10px 4px;font-size:13px}
+nav button.on{background:var(--accent-bg);color:var(--accent);font-weight:600}
+.bar{height:4px;background:var(--accent-bg);border-radius:4px;overflow:hidden;margin:2px 0 8px}
+.bar i{display:block;height:100%;background:var(--accent);border-radius:4px}
+.tag{font-size:10.5px;background:var(--accent-bg);color:var(--accent);border-radius:999px;padding:1px 8px;margin-left:8px;vertical-align:1px}
+.inline{display:flex;gap:8px}.inline>*{flex:1}
+.actions{display:flex;gap:6px;flex-shrink:0}
+button.ghost{white-space:nowrap}
+/* ガラス感・押した感 */
+:root{--glass:rgba(255,253,250,.72);--glass-line:rgba(255,255,255,.75);--glass-hi:rgba(255,255,255,.9)}
+@media (prefers-color-scheme:dark){:root{--glass:rgba(40,40,36,.62);--glass-line:rgba(255,255,255,.09);--glass-hi:rgba(255,255,255,.14)}}
+body{background-image:radial-gradient(520px 380px at 90% -4%,rgba(79,122,106,.20),transparent 65%),radial-gradient(460px 380px at -8% 38%,rgba(224,184,140,.22),transparent 65%),radial-gradient(500px 400px at 100% 85%,rgba(120,150,200,.14),transparent 65%);background-attachment:fixed}
+@media (prefers-color-scheme:dark){body{background-image:radial-gradient(520px 380px at 90% -4%,rgba(143,191,169,.14),transparent 65%),radial-gradient(460px 380px at -8% 38%,rgba(200,150,100,.10),transparent 65%)}}
+.card{background:var(--glass);-webkit-backdrop-filter:blur(22px) saturate(170%);backdrop-filter:blur(22px) saturate(170%);border:1px solid var(--glass-line);box-shadow:0 1px 0 var(--glass-hi) inset,var(--shadow)}
+.hero{background:transparent;border:0;box-shadow:none;-webkit-backdrop-filter:none;backdrop-filter:none}
+button{transition:transform .16s cubic-bezier(.3,1.4,.5,1),opacity .15s,box-shadow .15s;box-shadow:0 6px 16px rgba(30,25,15,.18),inset 0 1px 0 rgba(255,255,255,.28);background-image:linear-gradient(180deg,rgba(255,255,255,.16),rgba(255,255,255,0) 60%);-webkit-tap-highlight-color:transparent}
+button:active{transform:scale(.95);opacity:1;box-shadow:0 2px 6px rgba(30,25,15,.18),inset 0 1px 0 rgba(255,255,255,.2)}
+button.ghost{background:var(--glass);background-image:none;-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);border:1px solid var(--glass-line);box-shadow:0 1px 0 var(--glass-hi) inset,0 2px 8px rgba(30,25,15,.06)}
+.seg{background:rgba(120,110,90,.10);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)}
+.seg button{background:transparent;background-image:none;box-shadow:none;transition:background .2s,box-shadow .2s,transform .16s}
+.seg button.on{background:var(--glass);box-shadow:0 1px 0 var(--glass-hi) inset,0 2px 8px rgba(30,25,15,.12)}
+nav{background:var(--glass);-webkit-backdrop-filter:blur(26px) saturate(180%);backdrop-filter:blur(26px) saturate(180%);border:1px solid var(--glass-line);box-shadow:0 1px 0 var(--glass-hi) inset,0 10px 34px rgba(30,25,15,.16)}
+nav button{background:transparent;background-image:none;box-shadow:none;transition:background .25s,color .25s,transform .16s}
+nav button.on{background:var(--accent-bg);box-shadow:0 1px 0 var(--glass-hi) inset}
+nav button:active{transform:scale(.92)}
+.row[onclick]{transition:background .15s,transform .15s;-webkit-tap-highlight-color:transparent}
+.row[onclick]:active{background:var(--accent-bg);transform:scale(.985)}
+/* 選択中の印が、押したボタンへ左右にスライドして移る */
+.seg{position:relative}
+.seg button,nav button{position:relative;z-index:1}
+.seg button.on,nav button.on{background:transparent;box-shadow:none}
+.ind{position:absolute;border-radius:999px;pointer-events:none;z-index:0;transition:left .38s cubic-bezier(.3,1.25,.5,1),width .38s cubic-bezier(.3,1.25,.5,1)}
+.seg .ind{background:var(--glass);box-shadow:0 1px 0 var(--glass-hi) inset,0 2px 8px rgba(30,25,15,.12)}
+nav .ind{background:var(--accent-bg);box-shadow:0 1px 0 var(--glass-hi) inset}
+@media (prefers-reduced-motion:reduce){button{transition:none}.ind{transition:none}}
+main{padding-top:calc(20px + env(safe-area-inset-top))}
+</style>
+</head>
+<body>
+<main id="app"></main>
+<nav id="nav"></nav>
+<script>
+const KEY='okane-note-v1';
+const uid=()=>Math.random().toString(36).slice(2,10);
+const todayStr=()=>{const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')};
+const yen=n=>(n<0?'-':'')+'¥'+Math.abs(Math.round(n)).toLocaleString('ja-JP');
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const KINDS={cash:'現金・財布',bank:'銀行口座',other:'その他'};
+const MTYPES={direct:'口座出金',credit:'クレカ',debit:'デビット'}; // 銀行口座の支払い方法の種類
+
+const newCats=()=>[
+  ...['食費','日用品','交通','交際','趣味','旅行','その他'].map(name=>({id:uid(),name,kind:'expense'})),
+  ...['給料','立替','お小遣い','臨時'].map(name=>({id:uid(),name,kind:'income'}))];
+function defaults(){
+  const cash=uid(),bank=uid();
+  return {ver:3,accounts:[{id:cash,name:'現金',kind:'cash',initial:0},{id:bank,name:'銀行口座',kind:'bank',initial:0,methods:[{id:uid(),name:'口座出金',type:'direct'}]}],
+    categories:newCats(),tx:[],plans:[]};
+}
+let S;
+const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}};
+try{S=JSON.parse(localStorage.getItem(KEY))||defaults()}catch(e){S=defaults()}
+// 旧バージョン（収入・支出の区別なし）のカテゴリを新しいものに置き換える。名前が同じものは引き継ぐ
+if(S.categories.some(c=>!c.kind)){
+  const fresh=newCats(),map={};
+  S.categories.forEach(o=>{const m=fresh.find(c=>c.name===o.name&&(o.kind?c.kind===o.kind:true));map[o.id]=m?m.id:''});
+  [...S.tx,...S.plans].forEach(x=>{if(x.categoryId)x.categoryId=map[x.categoryId]||''});
+  S.categories=fresh;save();
+}
+// 一度だけ「旅行」を既存データに追加（削除しても復活しないよう版番号で管理）
+if(!S.ver||S.ver<2){
+  if(!S.categories.some(c=>c.kind==='expense'&&c.name==='旅行')){
+    const i=S.categories.findIndex(c=>c.kind==='expense'&&c.name==='その他');
+    S.categories.splice(i<0?S.categories.length:i,0,{id:uid(),name:'旅行',kind:'expense'});
+  }
+  S.ver=2;save();
+}
+// 銀行口座の「支払い方法」に整理し直す（旧版ではクレカ・デビットが独立した口座だった）
+function migrateV3(){
+  if((S.ver||0)>=3&&S.accounts.every(a=>a.kind!=='card'&&a.kind!=='debit'))return;
+  const direct=()=>({id:uid(),name:'口座出金',type:'direct'});
+  S.accounts.forEach(a=>{if(a.kind==='bank'&&!a.methods)a.methods=[direct()]});
+  for(const L of S.accounts.filter(a=>a.kind==='card'||a.kind==='debit')){
+    const B=S.accounts.find(a=>a.id===L.linkId&&a.kind!=='card'&&a.kind!=='debit');
+    if(!B){L.kind='other';continue}
+    if(!B.methods)B.methods=[direct()];
+    B.methods.push({id:L.id,name:L.name,type:L.kind==='card'?'credit':'debit'});
+    [...S.tx,...S.plans].forEach(x=>{if(x.accountId===L.id){x.accountId=B.id;x.methodId=L.id}if(x.toId===L.id)x.toId=B.id});
+    S.accounts=S.accounts.filter(a=>a!==L);
+  }
+  S.ver=3;save();
+}
+migrateV3();
+const needBackup=()=>S.tx.length>0&&(!S.lastBackup||(Date.now()-new Date(S.lastBackup))/864e5>=7);
+const catsOf=type=>S.categories.filter(c=>c.kind===(type==='income'?'income':'expense'));
+let detailId=null,mEdit=null; // ホームで開いている口座の詳細
+let tab='home', form={type:'expense'}, pform={type:'expense',certainty:'confirmed'};
+
+const acc=id=>S.accounts.find(a=>a.id===id);
+const cat=id=>S.categories.find(c=>c.id===id);
+const accName=id=>acc(id)?.name??'(削除済)';
+const catName=id=>cat(id)?.name??'未分類';
+const methodsOf=a=>(a&&a.methods)||[];
+const curAcc=id=>acc(id||S.accounts[0]?.id);
+// 支出の支払い方法（記録に指定がなければ口座出金）
+const isCredit=t=>methodOf(t)?.type==='credit';
+// クレカの未払い（まだ銀行から引き落とされていない分）
+const unpaidOf=(accId,mid)=>S.tx.filter(t=>t.accountId===accId&&isCredit(t)&&!t.settled&&(!mid||methodOf(t).id===mid)).reduce((s,t)=>s+t.amount,0);
+function creditInfo(a){
+  const unp=unpaidOf(a.id);if(!unp)return '';
+  return `<div class="sub" style="margin-top:6px">銀行アプリの残高の目安 <b>${yen(balance(a.id)+unp)}</b><br>＝ 家計簿の残高 ${yen(balance(a.id))} ＋ クレカ未払い ${yen(unp)}</div>`;
+}
+window.settleCard=(aid,mid,all)=>{
+  const d=all?'9999-12-31':prompt('いつまでの利用分が引き落とされましたか？（日付 例 2026-11-27）',todayStr());
+  if(d===null)return;
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(d.trim()))return alert('日付は 2026-11-27 の形で入力してください');
+  const list=S.tx.filter(t=>t.accountId===aid&&isCredit(t)&&methodOf(t).id===mid&&!t.settled&&t.date<=d.trim());
+  if(!list.length)return alert('その日までの未払いはありません');
+  const sum=list.reduce((s,t)=>s+t.amount,0);
+  if(confirm(list.length+'件・'+yen(sum)+' を引き落とし済みにします。よろしいですか？')){list.forEach(t=>t.settled=true);save();render()}
+};
+const methodOf=t=>{if(t.type!=='expense')return null;const ms=methodsOf(acc(t.accountId));return ms.find(m=>m.id===t.methodId)||ms.find(m=>m.type==='direct')||null};
+function balance(id){
+  let b=acc(id).initial||0;
+  for(const t of S.tx){
+    const f=t.accountId, to=t.toId||null;
+    if(t.type==='expense'&&f===id)b-=t.amount;
+    else if(t.type==='income'&&f===id)b+=t.amount;
+    else if(t.type==='transfer'){if(f===id)b-=t.amount;if(to===id)b+=t.amount}
+    else if(t.type==='adjust'&&f===id)b+=t.amount; // 残高の登録・調整（収入にも支出にも数えない）
+  }
+  return b;
+}
+const holders=()=>S.accounts;
+const totalBalance=()=>holders().reduce((s,a)=>s+balance(a.id),0);
+
+const opts=(list,sel,empty)=>(empty?`<option value="">${empty}</option>`:'')+list.map(x=>`<option value="${x.id}" ${x.id===sel?'selected':''}>${esc(x.name)}</option>`).join('');
+
+function render(){
+  document.getElementById('nav').innerHTML=[['home','ホーム'],['rec','記録'],['plan','予定'],['set','設定']]
+    .map(([k,l])=>`<button class="${tab===k?'on':''}" onclick="go('${k}')">${l}</button>`).join('');
+  document.getElementById('app').innerHTML={home:vHome,rec:vRec,plan:vPlan,set:vSet}[tab]();
+  slideIndicators();
+}
+// 切り替えボタンの「選択中の印」を、前の位置から新しい位置へスライドさせる
+const lastPos={};
+function slideIndicators(){
+  document.querySelectorAll('.seg,#nav').forEach(c=>{
+    const on=c.querySelector('button.on');if(!on)return;
+    const key=c.id==='nav'?'nav':'seg:'+tab;
+    const ind=document.createElement('i');ind.className='ind';c.prepend(ind);
+    const pos={left:on.offsetLeft,top:on.offsetTop,width:on.offsetWidth,height:on.offsetHeight};
+    const put=p=>{ind.style.left=p.left+'px';ind.style.top=p.top+'px';ind.style.width=p.width+'px';ind.style.height=p.height+'px'};
+    const prev=lastPos[key];
+    if(prev&&prev.left!==pos.left){put(prev);void ind.offsetWidth}
+    put(pos);lastPos[key]=pos;
+  });
+}
+window.go=k=>{tab=k;detailId=null;mEdit=null;render();scrollTo(0,0)};
+
+window.openAcc=id=>{detailId=id;mEdit=null;render();scrollTo(0,0)};
+window.closeAcc=()=>{detailId=null;mEdit=null;render();scrollTo(0,0)};
+function vAcc(id){
+  const a=acc(id);if(!a){detailId=null;return vHome()}
+  const b=balance(id),unp=unpaidOf(id),ym=todayStr().slice(0,7);
+  const byM=methodsOf(a).map(m=>[m.name,S.tx.filter(t=>t.type==='expense'&&t.accountId===id&&t.date.startsWith(ym)&&methodOf(t)?.id===m.id).reduce((s,t)=>s+t.amount,0)]).filter(([,v])=>v>0);
+  const recent=S.tx.filter(t=>t.accountId===id||t.toId===id).sort((x,y)=>y.date.localeCompare(x.date)||y.ts-x.ts).slice(0,10);
+  const sign=t=>t.type==='income'?1:t.type==='expense'?-1:t.type==='adjust'?(t.amount>=0?1:-1):(t.accountId===id?-1:1);
+  return `<button class="ghost" onclick="closeAcc()">← 戻る</button>
+  <div class="card hero"><div class="label">${esc(a.name)}</div><div class="big ${b<0?'neg':''}">${yen(b)}</div>
+    <div class="sub">家計簿上の残高${unp?'（クレカ未払いを引いた額）':''}</div></div>
+  ${unp?`<h2>銀行アプリの残高と照合</h2><div class="card">${creditInfo(a)}</div>`:''}
+  ${byM.length?`<h2>今月の使い方</h2><div class="card">${byM.map(([n,v])=>`<div class="row"><span>${esc(n)}</span><b>${yen(v)}</b></div>`).join('')}</div>`:''}
+  ${methodsOf(a).filter(m=>m.type==='credit').map(m=>{
+    const list=S.tx.filter(t=>t.accountId===id&&isCredit(t)&&methodOf(t).id===m.id&&!t.settled).sort((x,y)=>y.date.localeCompare(x.date)||y.ts-x.ts);
+    const v=list.reduce((s,t)=>s+t.amount,0);
+    return `<h2>${esc(m.name)}の引き落とし</h2><div class="card"><div class="row"><span>引き落とし待ち</span><b>${yen(v)}</b></div>
+    ${list.map(t=>`<div class="row"><div>${t.date.slice(5).replace('-','/')} ${esc(t.memo||catName(t.categoryId))}</div><div style="display:flex;gap:8px;align-items:center"><span>${yen(t.amount)}</span><button class="ghost" onclick="toggleSettled('${t.id}')">引落済</button></div></div>`).join('')}
+    ${v?`<div class="inline" style="margin-top:12px"><button onclick="settleCard('${id}','${m.id}',true)" style="white-space:nowrap;padding:10px 8px">すべて引落済みに</button><button class="ghost" style="padding:10px" onclick="settleCard('${id}','${m.id}')">日付を指定</button></div>`:'<div class="sub" style="margin-top:6px">未払いはありません</div>'}</div>`}).join('')}
+  ${a.kind==='bank'||methodsOf(a).length?`<h2>支払い方法</h2><div class="card">${methodsOf(a).map(m=>mEdit&&mEdit.mid===m.id?
+    `<div style="padding:10px 0;border-bottom:1px solid var(--line)"><div class="inline"><input id="e_name" value="${esc(m.name)}">${m.type==='direct'?'':`<select id="e_type" style="flex:0 0 110px"><option value="credit" ${m.type==='credit'?'selected':''}>クレカ</option><option value="debit" ${m.type==='debit'?'selected':''}>デビット</option></select>`}</div><div class="inline" style="margin-top:8px"><button onclick="saveMethod('${id}','${m.id}')">保存</button><button class="ghost" style="padding:10px" onclick="mEdit=null;render()">やめる</button></div></div>`
+    :`<div class="row"><div>${esc(m.name)}<span class="tag">${MTYPES[m.type]}</span></div><div class="actions"><button class="ghost" onclick="editMethod('${m.id}')">編集</button>${m.type!=='direct'?`<button class="ghost" onclick="delMethod('${id}','${m.id}')">削除</button>`:''}</div></div>`).join('')}
+    <label>支払い方法を追加</label><div class="inline"><select id="d_type" style="flex:0 0 110px"><option value="credit">クレカ</option><option value="debit">デビット</option></select><input id="d_name" placeholder="例：楽天カード"></div>
+    <button class="full" onclick="addMethodTo('${id}')">追加</button></div>`:''}
+  <h2>最近の記録</h2>
+  <div class="card">${recent.length?recent.map(t=>`<div class="row"><div>${t.date.slice(5).replace('-','/')} ${esc(t.memo||(t.type==='transfer'?'移動':t.type==='adjust'?'残高調整':catName(t.categoryId)))}<div class="sub">${methodOf(t)?esc(methodOf(t).name)+(isCredit(t)?(t.settled?'（引落済）':'（未払い）'):''):''}</div></div><b class="${sign(t)>0?'pos':''}">${sign(t)>0?'+':'-'}${yen(Math.abs(t.amount))}</b></div>`).join(''):'<div class="sub">まだ記録がありません</div>'}</div>
+  <button class="full ghost" style="padding:12px" onclick="setBal('${id}')">残高を合わせる</button>`;
+}
+function vHome(){
+  if(detailId)return vAcc(detailId);
+  const bal=totalBalance();
+  const pend=S.plans;
+  const out=pend.filter(p=>p.type==='expense').reduce((s,p)=>s+p.amount,0);
+  const inC=pend.filter(p=>p.type==='income'&&p.certainty==='confirmed').reduce((s,p)=>s+p.amount,0);
+  const inP=pend.filter(p=>p.type==='income'&&p.certainty!=='confirmed').reduce((s,p)=>s+p.amount,0);
+  const free=bal-out+inC;
+  const ym=todayStr().slice(0,7);
+  const byCat={};let monthTotal=0;
+  S.tx.filter(t=>t.type==='expense'&&t.date.startsWith(ym)).forEach(t=>{byCat[t.categoryId]=(byCat[t.categoryId]||0)+t.amount;monthTotal+=t.amount});
+  const cats=Object.entries(byCat).sort((a,b)=>b[1]-a[1]);
+  const upcoming=[...pend].sort((a,b)=>a.date.localeCompare(b.date)).slice(0,5);
+  return `
+  <div class="card hero"><div class="label">いま持っているお金の総額</div>
+    <div class="big ${bal<0?'neg':''}">${yen(bal)}</div>
+    <div class="sub" style="margin-top:10px">自由に使えるお金 <b class="${free<0?'neg':''}">${yen(free)}</b></div>
+    <div class="sub">（総額 ${yen(bal)} − 支出予定 ${yen(out)} + 確定収入 ${yen(inC)}）</div>
+    ${inP?`<div class="sub">見込み・期待の収入 ${yen(inP)} は含めていません</div>`:''}
+  </div>
+  ${needBackup()?`<div class="card" style="display:flex;justify-content:space-between;align-items:center;gap:10px"><div class="sub" style="color:var(--text)">${S.lastBackup?'バックアップが1週間以上前です':'まだバックアップがありません'}</div><button class="ghost" onclick="go('set')">バックアップする</button></div>`:''}
+  <button class="full" onclick="go('rec')">＋ 記録する</button>
+  <h2>口座・財布</h2>
+  <div class="card">${S.accounts.map(a=>{
+    const b=balance(a.id);
+    const unp=unpaidOf(a.id);
+    return `<div class="row" style="cursor:pointer" onclick="openAcc('${a.id}')"><div>${esc(a.name)}<div class="sub">${KINDS[a.kind]}${unp?' ・ クレカ未払い '+yen(unp):''}</div></div><div style="display:flex;align-items:center;gap:8px"><b class="${b<0?'neg':''}">${yen(b)}</b><span class="sub">›</span></div></div>`}).join('')}</div>
+  <h2>今月の支出 ${yen(monthTotal)}</h2>
+  <div class="card">${cats.length?cats.map(([id,v])=>`<div class="small-row"><div class="row" style="border:0;padding:2px 0"><span>${esc(catName(id))}</span><span>${yen(v)}</span></div><div class="bar"><i style="width:${v/monthTotal*100}%"></i></div></div>`).join(''):'<div class="sub">まだ記録がありません</div>'}</div>
+  <h2>これからの予定</h2>
+  <div class="card">${upcoming.length?upcoming.map(p=>`<div class="row"><div>${p.date.slice(5).replace('-','/')} ${esc(p.memo||catName(p.categoryId))}${p.type==='income'?`<span class="tag">${p.certainty==='confirmed'?'確定':p.certainty==='likely'?'見込み':'期待'}</span>`:''}</div><b class="${p.type==='income'?'pos':''}">${p.type==='income'?'+':'-'}${yen(p.amount).replace('¥','¥')}</b></div>`).join(''):'<div class="sub">予定はありません</div>'}</div>`;
+}
+
+function vRec(){
+  const f=form, isT=f.type==='transfer';
+  const recent=[...S.tx].sort((a,b)=>b.date.localeCompare(a.date)||b.ts-a.ts).slice(0,30);
+  return `
+  <div class="card">
+    ${f.editId?'<div class="sub" style="margin-bottom:8px">✏️ 記録を編集中</div>':''}
+    <div class="seg">${[['expense','支出'],['income','収入'],['transfer','移動'],['adjust','残高']].map(([k,l])=>`<button class="${f.type===k?'on':''}" onclick="setType('${k}')">${l}</button>`).join('')}</div>
+    ${f.type==='adjust'?'<div class="sub" style="margin-top:8px">口座の残高を登録・修正します。収入や支出には数えません。</div>':''}
+    ${f.type==='adjust'&&unpaidOf(curAcc(f.acc)?.id)?`<div class="sub" style="margin-top:4px">銀行アプリの残高を入れてください。クレカ未払い ${yen(unpaidOf(curAcc(f.acc).id))} は自動で考慮します。</div>`:''}
+    <label>${f.type==='adjust'?'いまの実際の残高':'金額'}</label><input id="f_amount" type="number" inputmode="numeric" min="0" placeholder="0" value="${f.amount||''}">
+    <label>${isT?'移動元':'口座・財布'}</label><select id="f_acc" onchange="setAcc()">${opts(S.accounts,f.acc||S.accounts[0]?.id)}</select>
+    ${f.type==='expense'&&methodsOf(curAcc(f.acc)).length?`<label>支払い方法</label><select id="f_method">${methodsOf(curAcc(f.acc)).map(m=>`<option value="${m.id}" ${m.id===f.method?'selected':''}>${esc(m.name)}</option>`).join('')}</select>`:''}
+    ${f.type==='adjust'?'':isT?`<label>移動先</label><select id="f_to">${opts(holders(),f.to)}</select>`:`<label>カテゴリ</label><select id="f_cat">${opts(catsOf(f.type),f.cat,'（あとで決める）')}</select>`}
+    <label>日付</label><input id="f_date" type="date" value="${f.date||todayStr()}">
+    <label>メモ</label><input id="f_memo" placeholder="例：ランチ" value="${esc(f.memo||'')}">
+    <button class="full" onclick="addTx()">${f.editId?'更新':'保存'}</button>
+    ${f.editId?'<button class="full ghost" style="padding:10px" onclick="cancelEdit()">編集をやめる</button>':''}
+  </div>
+  <h2>最近の記録</h2>
+  <div class="card">${recent.length?recent.map(t=>`<div class="row"><div>${t.date.slice(5).replace('-','/')} ${esc(t.memo||(t.type==='transfer'?'移動':t.type==='adjust'?'残高調整':catName(t.categoryId)))}${t.type==='adjust'?'<span class="tag">残高</span>':''}<div class="sub">${esc(accName(t.accountId))}${methodOf(t)?' ・ '+esc(methodOf(t).name)+(isCredit(t)?(t.settled?'（引落済）':'（未払い）'):''):''}${t.type==='transfer'?' → '+esc(accName(t.toId)):''}${t.type!=='transfer'&&t.type!=='adjust'&&t.categoryId?' ・ '+esc(catName(t.categoryId)):''}</div></div>
+    <div style="text-align:right"><b class="${t.type==='income'||(t.type==='adjust'&&t.amount>0)?'pos':''}">${t.type==='income'?'+':t.type==='expense'?'-':t.type==='adjust'?(t.amount>=0?'+':'-'):''}${yen(Math.abs(t.amount))}</b><div class="actions" style="justify-content:flex-end">${t.type==='adjust'?'':`<button class="ghost" onclick="editTx('${t.id}')">編集</button>`}<button class="ghost" onclick="delTx('${t.id}')">削除</button></div></div></div>`).join(''):'<div class="sub">まだ記録がありません</div>'}</div>`;
+}
+window.addTx=()=>{
+  if(form.type==='adjust'){
+    const raw=document.getElementById('f_amount').value;
+    if(raw===''||isNaN(+raw))return alert('いまの残高を入力してください');
+    const accountId=document.getElementById('f_acc').value;
+    const delta=Math.round(+raw)-unpaidOf(accountId)-balance(accountId); // クレカ未払い分は家計簿の残高に含まれない
+    S.tx.push({id:uid(),ts:Date.now(),type:'adjust',amount:delta,accountId,date:document.getElementById('f_date').value||todayStr(),memo:document.getElementById('f_memo').value.trim()});
+    form={type:'adjust',acc:accountId};save();render();return;
+  }
+  const amount=Math.round(+document.getElementById('f_amount').value);
+  if(!(amount>0))return alert('金額を入力してください');
+  const old=form.editId?S.tx.find(x=>x.id===form.editId):null;
+  const t={id:old?old.id:uid(),ts:old?old.ts:Date.now(),type:form.type,amount,accountId:document.getElementById('f_acc').value,
+    date:document.getElementById('f_date').value||todayStr(),memo:document.getElementById('f_memo').value.trim()};
+  if(form.type==='transfer'){t.toId=document.getElementById('f_to').value;if(t.accountId===t.toId)return alert('移動元と移動先が同じです')}
+  else t.categoryId=document.getElementById('f_cat').value;
+  if(form.type==='expense'){const m=document.getElementById('f_method');if(m)t.methodId=m.value}
+  if(old&&old.settled)t.settled=true;
+  if(old)S.tx[S.tx.indexOf(old)]=t;else S.tx.push(t);
+  form={type:t.type,acc:t.accountId,cat:t.categoryId,to:t.toId,method:t.methodId};
+  save();render();
+};
+// 入力途中の値を保ったまま種類を切り替える
+const capForm=()=>{const v=id=>document.getElementById(id)?.value;
+  return {...form,amount:v('f_amount')??form.amount,date:v('f_date')??form.date,memo:v('f_memo')??form.memo,acc:v('f_acc')||form.acc,cat:v('f_cat')??form.cat,to:v('f_to')??form.to,method:v('f_method')??form.method}};
+window.setType=k=>{form={...capForm(),type:k,cat:''};render()};
+window.setAcc=()=>{form={...capForm(),method:''};render()};
+window.editTx=id=>{
+  const t=S.tx.find(x=>x.id===id);if(!t)return;
+  form={type:t.type,acc:t.accountId,cat:t.categoryId,to:t.toId,method:t.methodId,amount:t.amount,date:t.date,memo:t.memo,editId:id};
+  tab='rec';render();scrollTo(0,0);
+};
+window.cancelEdit=()=>{form={type:form.type,acc:form.acc,cat:form.cat,to:form.to};render()};
+window.delTx=id=>{if(confirm('この記録を削除しますか？（残高も元に戻ります）')){S.tx=S.tx.filter(t=>t.id!==id);save();render()}};
+
+function vPlan(){
+  const p=pform,list=[...S.plans].sort((a,b)=>a.date.localeCompare(b.date));
+  return `
+  <div class="card">
+    <div class="seg">${[['expense','支出予定'],['income','収入予定']].map(([k,l])=>`<button class="${p.type===k?'on':''}" onclick="setPType('${k}')">${l}</button>`).join('')}</div>
+    ${p.editId?'<div class="sub" style="margin-top:8px">✏️ 予定を編集中</div>':''}
+    <label>予定日</label><input id="p_date" type="date" value="${p.date||todayStr()}">
+    <label>金額</label><input id="p_amount" type="number" inputmode="numeric" min="0" placeholder="0" value="${p.amount||''}">
+    <label>内容</label><input id="p_memo" placeholder="例：家賃、バイト代" value="${esc(p.memo||'')}">
+    <div class="inline"><div><label>口座</label><select id="p_acc" onchange="setPAcc()">${opts(S.accounts,p.acc||S.accounts[0]?.id)}</select></div>
+    <div><label>カテゴリ</label><select id="p_cat">${opts(catsOf(p.type),p.cat,'未分類')}</select></div></div>
+    ${p.type==='expense'&&methodsOf(curAcc(p.acc)).length?`<label>支払い方法</label><select id="p_method">${methodsOf(curAcc(p.acc)).map(m=>`<option value="${m.id}" ${m.id===p.method?'selected':''}>${esc(m.name)}</option>`).join('')}</select>`:''}
+    ${p.type==='income'?`<label>確度（「確定」だけが自由に使える額に入ります）</label><select id="p_cert">${[['confirmed','確定'],['likely','見込み'],['hope','期待']].map(([k,l])=>`<option value="${k}" ${(p.certainty||'confirmed')===k?'selected':''}>${l}</option>`).join('')}</select>`:''}
+    <button class="full" onclick="addPlan()">${p.editId?'更新':'予定を追加'}</button>
+    ${p.editId?`<button class="full" style="margin-top:8px;background:var(--accent)" onclick="addPlan(true)">この内容で実行済みにする</button><button class="full ghost" style="padding:10px;margin-top:8px" onclick="cancelPlanEdit()">編集をやめる</button>`:''}
+  </div>
+  ${planSummary()}
+  <h2>予定一覧</h2>
+  <div class="card">${list.length?list.map(x=>`<div class="row"><div>${x.date.slice(5).replace('-','/')} ${esc(x.memo||catName(x.categoryId))}${x.type==='income'?`<span class="tag">${x.certainty==='confirmed'?'確定':x.certainty==='likely'?'見込み':'期待'}</span>`:''}<div class="sub">${esc(accName(x.accountId))}${methodOf(x)?' ・ '+esc(methodOf(x).name):''}</div></div>
+    <div style="text-align:right"><b class="${x.type==='income'?'pos':''}">${x.type==='income'?'+':'-'}${yen(x.amount)}</b>
+    <div class="actions" style="justify-content:flex-end;margin-top:4px"><button class="ghost" onclick="editPlan('${x.id}')">編集</button><button class="ghost" onclick="delPlan('${x.id}')">削除</button></div></div></div>`).join(''):'<div class="sub">予定はありません</div>'}</div>`;
+}
+function planSummary(){
+  const sum=a=>a.reduce((s,p)=>s+p.amount,0);
+  const ex=S.plans.filter(p=>p.type==='expense'), inc=S.plans.filter(p=>p.type==='income');
+  if(!ex.length&&!inc.length)return '';
+  const grp=(list)=>{const m={};list.forEach(p=>{const k=p.categoryId||'';m[k]=(m[k]||0)+p.amount});return Object.entries(m).sort((a,b)=>b[1]-a[1])};
+  const exT=sum(ex), incC=sum(inc.filter(p=>p.certainty==='confirmed')), incO=sum(inc)-incC;
+  const rows=(g,total)=>g.map(([k,v])=>`<div class="small-row"><div class="row" style="border:0;padding:2px 0"><span>${k?esc(catName(k)):'未分類'}</span><span>${yen(v)}</span></div><div class="bar"><i style="width:${total?v/total*100:0}%"></i></div></div>`).join('');
+  return `<h2>予定の合計</h2>
+  <div class="card">
+    <div class="row"><b>支出予定の総額</b><b class="neg">-${yen(exT)}</b></div>
+    ${rows(grp(ex),exT)}
+    <div class="row" style="margin-top:10px"><b>収入予定の総額</b><b class="pos">+${yen(sum(inc))}</b></div>
+    <div class="sub">うち確定 ${yen(incC)} ／ 見込み・期待 ${yen(incO)}</div>
+    ${rows(grp(inc),sum(inc))}
+    <div class="row" style="margin-top:10px"><b>収入 − 支出</b><b class="${sum(inc)-exT<0?'neg':'pos'}">${yen(sum(inc)-exT)}</b></div>
+  </div>`;
+}
+window.setPType=k=>{
+  const v=id=>document.getElementById(id)?.value;
+  pform={...pform,type:k,cat:'',amount:v('p_amount'),date:v('p_date'),memo:v('p_memo'),acc:v('p_acc')||pform.acc};
+  render();
+};
+window.setPAcc=()=>{
+  const v=id=>document.getElementById(id)?.value;
+  pform={...pform,amount:v('p_amount'),date:v('p_date'),memo:v('p_memo'),cat:v('p_cat'),acc:v('p_acc'),method:'',certainty:v('p_cert')||pform.certainty};
+  render();
+};
+window.editPlan=id=>{
+  const x=S.plans.find(p=>p.id===id);if(!x)return;
+  pform={type:x.type,acc:x.accountId,cat:x.categoryId,method:x.methodId,certainty:x.certainty,amount:x.amount,date:x.date,memo:x.memo,editId:id};
+  tab='plan';render();scrollTo(0,0);
+};
+window.cancelPlanEdit=()=>{pform={type:pform.type,acc:pform.acc,cat:pform.cat,certainty:'confirmed'};render()};
+window.addPlan=(thenDone)=>{
+  const amount=Math.round(+document.getElementById('p_amount').value);
+  if(!(amount>0))return alert('金額を入力してください');
+  const x={id:pform.editId||uid(),type:pform.type,date:document.getElementById('p_date').value||todayStr(),amount,memo:document.getElementById('p_memo').value.trim(),
+    accountId:document.getElementById('p_acc').value,categoryId:document.getElementById('p_cat').value,
+    certainty:pform.type==='income'?document.getElementById('p_cert').value:'confirmed'};
+  const pm=document.getElementById('p_method');if(pm&&pform.type==='expense')x.methodId=pm.value;
+  const i=S.plans.findIndex(p=>p.id===x.id);if(i>=0)S.plans[i]=x;else S.plans.push(x);
+  pform={type:x.type,acc:x.accountId,cat:x.categoryId,certainty:'confirmed'};
+  save();if(thenDone)donePlan(x.id);else render();
+};
+window.donePlan=id=>{
+  const x=S.plans.find(p=>p.id===id);if(!x)return;
+  S.tx.push({id:uid(),ts:Date.now(),type:x.type,amount:x.amount,accountId:x.accountId,methodId:x.methodId,categoryId:x.categoryId,date:todayStr(),memo:x.memo});
+  S.plans=S.plans.filter(p=>p.id!==id);save();render();
+};
+window.delPlan=id=>{if(confirm('この予定を削除しますか？')){S.plans=S.plans.filter(p=>p.id!==id);save();render()}};
+
+function vSet(){
+  return `
+  <h2>口座・財布</h2>
+  <div class="card">${S.accounts.map(a=>`<div class="row"><div>${esc(a.name)}<div class="sub">${KINDS[a.kind]}</div>${methodsOf(a).length?`<div style="margin-top:6px">${methodsOf(a).map(m=>`<span class="tag" style="margin:0 6px 4px 0;cursor:pointer" onclick="goAcc('${a.id}')">${esc(m.name)}${m.type!=='direct'?` <a onclick="event.stopPropagation();delMethod('${a.id}','${m.id}')" style="cursor:pointer;opacity:.6">×</a>`:''}</span>`).join('')}</div>`:''}</div>
+    <div class="actions"><button class="ghost" onclick="setBal('${a.id}')">残高を合わせる</button><button class="ghost" onclick="delAcc('${a.id}')">削除</button></div></div>`).join('')}
+</div>
+  <h2>口座・財布を追加</h2>
+  <div class="card">
+    <label style="margin-top:0">名前</label>
+    <input id="a_name" placeholder="名前（例：三井住友銀行、貯金用口座）">
+    <label>種類と、いまの残高</label>
+    <div class="inline"><select id="a_kind" onchange="document.getElementById('a_m_w').style.display=this.value==='bank'?'block':'none'">${Object.entries(KINDS).map(([k,v])=>`<option value="${k}">${v}</option>`).join('')}</select>
+    <input id="a_init" type="number" inputmode="numeric" placeholder="今の残高"></div>
+    <div id="a_m_w" style="display:none"><label>この口座で使う支払い方法（口座出金は最初から入っています）</label>
+      <div class="inline"><label style="margin:0;display:flex;gap:8px;align-items:center;font-size:14px;color:var(--text)"><input type="checkbox" id="a_m_credit" style="width:auto">クレカ</label><label style="margin:0;display:flex;gap:8px;align-items:center;font-size:14px;color:var(--text)"><input type="checkbox" id="a_m_debit" style="width:auto">デビット</label></div></div>
+    <button class="full" onclick="addAcc()">追加</button></div>
+  <h2>支払い方法を追加</h2>
+  <div class="card">
+    <div class="sub">銀行口座にクレカやデビットを増やせます。使うとその口座の残高から減ります。</div>
+    <label>銀行口座</label><select id="m_acc">${opts(S.accounts.filter(a=>a.kind==='bank'||methodsOf(a).length),'')}</select>
+    <label>種類と名前</label>
+    <div class="inline"><select id="m_type" style="flex:0 0 110px"><option value="credit">クレカ</option><option value="debit">デビット</option></select><input id="m_name" placeholder="例：楽天カード"></div>
+    <button class="full" onclick="addMethod()">追加</button></div>
+  <h2>カテゴリ</h2>
+  <div class="card">${[['expense','出費'],['income','収入']].map(([k,l])=>`<div class="sub" style="margin-top:6px">${l}</div>`+catsOf(k).map(c=>`<div class="row"><span>${esc(c.name)}</span><button class="ghost" onclick="delCat('${c.id}')">削除</button></div>`).join('')).join('')}
+</div>
+  <h2>カテゴリを追加</h2>
+  <div class="card">
+    <label style="margin-top:0">種類と名前</label><div class="inline"><select id="c_kind" style="flex:0 0 90px"><option value="expense">出費</option><option value="income">収入</option></select><input id="c_name" placeholder="例：事業の仕入れ"><button onclick="addCat()" style="flex:0 0 80px">追加</button></div></div>
+  <h2>バックアップ</h2>
+  <div class="card"><div class="sub">データはこの端末の中だけに保存されています。端末やブラウザのデータを消すと失われるので、時々書き出してください。</div>
+    <div class="sub" style="margin-top:6px">最後のバックアップ：<b>${S.lastBackup||'まだありません'}</b></div>
+    <div class="inline" style="margin-top:10px"><button onclick="exportData()">書き出し</button><button onclick="document.getElementById('imp').click()">読み込み</button></div>
+    <input id="imp" type="file" accept=".json" style="display:none" onchange="importData(this)"></div>`;
+}
+window.addAcc=()=>{
+  const name=document.getElementById('a_name').value.trim();if(!name)return alert('名前を入力してください');
+  const kind=document.getElementById('a_kind').value;
+  const a={id:uid(),name,kind,initial:Math.round(+document.getElementById('a_init').value||0)};
+  if(kind==='bank'){
+    a.methods=[{id:uid(),name:'口座出金',type:'direct'}];
+    if(document.getElementById('a_m_credit').checked)a.methods.push({id:uid(),name:'クレカ',type:'credit'});
+    if(document.getElementById('a_m_debit').checked)a.methods.push({id:uid(),name:'デビット',type:'debit'});
+  }
+  S.accounts.push(a);save();render();
+};
+window.goAcc=id=>{tab='home';detailId=id;mEdit=null;render();scrollTo(0,0)};
+window.toggleSettled=id=>{const t=S.tx.find(x=>x.id===id);if(!t)return;t.settled=!t.settled;save();render()};
+window.editMethod=mid=>{mEdit={mid};render()};
+window.saveMethod=(aid,mid)=>{
+  const a=acc(aid),m=a.methods.find(x=>x.id===mid);if(!m)return;
+  const name=document.getElementById('e_name').value.trim();if(!name)return alert('名前を入力してください');
+  const type=m.type==='direct'?'direct':document.getElementById('e_type').value;
+  if(type!==m.type&&S.tx.some(t=>t.methodId===mid)&&!confirm('種類を変えると、過去の記録の扱い（クレカの未払いなど）も変わります。よろしいですか？'))return;
+  m.name=name;m.type=type;mEdit=null;save();render();
+};
+window.addMethodTo=aid=>{
+  const a=acc(aid);if(!a)return;
+  const type=document.getElementById('d_type').value;
+  const name=document.getElementById('d_name').value.trim()||MTYPES[type];
+  if(!a.methods)a.methods=[{id:uid(),name:'口座出金',type:'direct'}];
+  a.methods.push({id:uid(),name,type});save();render();
+};
+window.addMethod=()=>{
+  const a=acc(document.getElementById('m_acc').value);if(!a)return alert('先に銀行口座を作ってください');
+  const type=document.getElementById('m_type').value;
+  const name=document.getElementById('m_name').value.trim()||MTYPES[type];
+  if(!a.methods)a.methods=[{id:uid(),name:'口座出金',type:'direct'}];
+  a.methods.push({id:uid(),name,type});save();render();
+};
+window.delMethod=(aid,mid)=>{
+  if(S.tx.some(t=>t.methodId===mid)||S.plans.some(p=>p.methodId===mid))return alert('この支払い方法は記録・予定で使われているため削除できません');
+  if(confirm('削除しますか？')){const a=acc(aid);a.methods=a.methods.filter(m=>m.id!==mid);save();render()}
+};
+window.setBal=id=>{
+  const v=prompt('いまの実際の残高（銀行アプリなどの表示）を入力。クレカ未払い分は自動で考慮し、差額を調整します',balance(id)+unpaidOf(id));
+  if(v===null||v.trim()===''||isNaN(+v))return;
+  S.tx.push({id:uid(),ts:Date.now(),type:'adjust',amount:Math.round(+v)-unpaidOf(id)-balance(id),accountId:id,date:todayStr(),memo:''});save();render();
+};
+window.delAcc=id=>{
+  if(S.tx.some(t=>t.accountId===id||t.toId===id)||S.plans.some(p=>p.accountId===id))
+    return alert('この口座は記録・予定で使われているため削除できません');
+  if(confirm('削除しますか？')){S.accounts=S.accounts.filter(a=>a.id!==id);save();render()}
+};
+window.addCat=()=>{const n=document.getElementById('c_name').value.trim();if(!n)return;S.categories.push({id:uid(),name:n,kind:document.getElementById('c_kind').value});save();render()};
+window.delCat=id=>{if(confirm('削除しますか？（過去の記録は「未分類」になります）')){S.categories=S.categories.filter(c=>c.id!==id);save();render()}};
+window.exportData=async()=>{
+  const name='okane-note-'+todayStr()+'.json',prev=S.lastBackup;
+  S.lastBackup=todayStr();
+  const json=JSON.stringify(S,null,1);
+  try{
+    const f=new File([json],name,{type:'application/json'});
+    if(navigator.canShare&&navigator.canShare({files:[f]})){await navigator.share({files:[f],title:name});save();render();return} // iPhoneの共有メニュー（ファイルに保存など）
+  }catch(e){if(e&&e.name==='AbortError'){S.lastBackup=prev;return}}
+  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([json],{type:'application/json'}));
+  a.download=name;a.click();save();render();
+};
+window.importData=el=>{
+  const f=el.files[0];if(!f)return;const r=new FileReader();
+  r.onload=()=>{try{const d=JSON.parse(r.result);if(!d.accounts||!d.tx)throw 0;if(confirm('今のデータを上書きします。よろしいですか？')){S=d;migrateV3();save();render()}}catch(e){alert('読み込めませんでした')}};
+  r.readAsText(f);
+};
+render();
+// ホーム画面に追加したときに、端末にデータを消さないようお願いする／圏外でも開けるようにする
+try{if(navigator.storage&&navigator.storage.persist)navigator.storage.persist()}catch(e){}
+if('serviceWorker' in navigator&&/^https?:$/.test(location.protocol))navigator.serviceWorker.register('sw.js').catch(()=>{});
+</script>
+</body>
+</html>
