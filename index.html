@@ -96,6 +96,20 @@ input[type=date]{-webkit-appearance:none;appearance:none;display:block;width:100
 input[type=date]::-webkit-date-and-time-value{text-align:left;min-height:1.2em}
 input[type=date]::-webkit-calendar-picker-indicator{margin:0}
 </style>
+<script>
+// 表示モード（自動／明るい／暗い）。自動は端末の設定に合わせ、選んだ場合はそれを優先する。端末ごとに覚える。
+const THEME_KEY='okane-note-theme';
+const BASE_CSS=document.querySelector('style').textContent;
+function getTheme(){try{return localStorage.getItem(THEME_KEY)||'auto'}catch(e){return 'auto'}}
+function applyTheme(m){
+  const css=m==='dark'?BASE_CSS.split('(prefers-color-scheme:dark)').join('all'):m==='light'?BASE_CSS.split('(prefers-color-scheme:dark)').join('not all'):BASE_CSS;
+  document.querySelector('style').textContent=css;
+  document.documentElement.style.colorScheme=m==='auto'?'light dark':m;
+  const dark=m==='dark'||(m==='auto'&&matchMedia('(prefers-color-scheme: dark)').matches);
+  const meta=document.querySelector('meta[name=theme-color]');if(meta)meta.content=dark?'#17181a':'#f4f1ec';
+}
+applyTheme(getTheme());
+</script>
 </head>
 <body>
 <main id="app"></main>
@@ -411,6 +425,9 @@ window.delPlan=id=>{if(confirm('この予定を削除しますか？')){S.plans=
 
 function vSet(){
   return `
+  <h2>表示</h2>
+  <div class="card"><div class="seg">${[['auto','自動'],['light','明るい'],['dark','暗い']].map(([k,l])=>`<button class="${getTheme()===k?'on':''}" onclick="setTheme('${k}')">${l}</button>`).join('')}</div>
+    <div class="sub" style="margin-top:10px">「自動」は、iPhoneの設定（ライト／ダーク）に合わせます。</div></div>
   <h2>口座・財布</h2>
   <div class="card">${S.accounts.map(a=>`<div class="row"><div>${esc(a.name)}<div class="sub">${KINDS[a.kind]}</div>${methodsOf(a).length?`<div style="margin-top:6px">${methodsOf(a).map(m=>`<span class="tag" style="margin:0 6px 4px 0;cursor:pointer" onclick="goAcc('${a.id}')">${esc(m.name)}${m.type!=='direct'?` <a onclick="event.stopPropagation();delMethod('${a.id}','${m.id}')" style="cursor:pointer;opacity:.6">×</a>`:''}</span>`).join('')}</div>`:''}</div>
     <div class="actions"><button class="ghost" onclick="setBal('${a.id}')">残高を合わせる</button><button class="ghost" onclick="delAcc('${a.id}')">削除</button></div></div>`).join('')}
@@ -444,6 +461,7 @@ function vSet(){
     <div class="inline" style="margin-top:10px"><button onclick="exportData()">書き出し</button><button onclick="document.getElementById('imp').click()">読み込み</button></div>
     <input id="imp" type="file" accept=".json" style="display:none" onchange="importData(this)"></div>`;
 }
+window.setTheme=m=>{try{localStorage.setItem(THEME_KEY,m)}catch(e){}applyTheme(m);render()};
 window.addAcc=()=>{
   const name=document.getElementById('a_name').value.trim();if(!name)return alert('名前を入力してください');
   const kind=document.getElementById('a_kind').value;
