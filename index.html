@@ -191,9 +191,15 @@ function migrateV3(){
   S.ver=3;save();
 }
 migrateV3();
+function migrateV4(){
+  if((S.ver||0)>=4)return;
+  S.tx.forEach(t=>{if(t.advance&&t.advAmt==null)t.advAmt=t.amount}); // 旧版では未入力＝全額だったので、その金額を明示する
+  S.ver=4;save();
+}
+migrateV4();
 const needBackup=()=>S.tx.length>0&&(!S.lastBackup||(Date.now()-new Date(S.lastBackup))/864e5>=7);
 const catsOf=type=>S.categories.filter(c=>c.kind===(type==='income'?'income':'expense'));
-let detailId=null,mEdit=null,reimbEdit=null; // ホームで開いている口座の詳細
+let detailId=null,mEdit=null,reimbEdit=null,pendForm=false,allocEdit=null; // ホームで開いている口座の詳細
 let tab='home', form={type:'expense'}, pform={type:'expense',certainty:'confirmed'};
 
 const acc=id=>S.accounts.find(a=>a.id===id);
@@ -201,7 +207,7 @@ const cat=id=>S.categories.find(c=>c.id===id);
 const accName=id=>acc(id)?.name??'(削除済)';
 const catName=id=>cat(id)?.name??'未分類';
 // 立替分は支出に数えない。自分の分と、返金が足りなかった分だけ支出にする
-const advOf=t=>t.advance?(t.advAmt!=null?Math.min(t.advAmt,t.amount):t.amount):0; // 立替分（未入力なら全額）
+const advOf=t=>t.advance&&t.advAmt!=null?Math.min(t.advAmt,t.amount):0; // 立替分（未入力なら、立替には数えない）
 const spendOf=t=>(t.amount-advOf(t))+(t.reimbursed?Math.max(0,advOf(t)-(t.received||0)):0); // 自分の分＋返金が足りなかった分
 const methodsOf=a=>(a&&a.methods)||[];
 const curAcc=id=>acc(id||S.accounts[0]?.id);
@@ -261,7 +267,7 @@ function slideIndicators(){
     put(pos);lastPos[key]=pos;
   });
 }
-window.go=k=>{reimbEdit=null;tab=k;detailId=null;mEdit=null;render();scrollTo(0,0)};
+window.go=k=>{reimbEdit=null;pendForm=false;allocEdit=null;tab=k;detailId=null;mEdit=null;render();scrollTo(0,0)};
 
 window.openAcc=id=>{detailId=id;mEdit=null;render();scrollTo(0,0)};
 window.closeAcc=()=>{detailId=null;mEdit=null;render();scrollTo(0,0)};
@@ -288,27 +294,53 @@ function vAcc(id){
     <label>支払い方法を追加</label><div class="inline"><select id="d_type" style="flex:0 0 110px"><option value="credit">クレカ</option><option value="debit">デビット</option></select><input id="d_name" placeholder="例：楽天カード"></div>
     <button class="full" onclick="addMethodTo('${id}')">追加</button></div>`:''}
   <h2>最近の記録</h2>
-  <div class="card">${recent.length?recent.map(t=>`<div class="row"><div>${t.date.slice(5).replace('-','/')} ${esc(t.memo||(t.type==='transfer'?'移動':t.type==='adjust'?'残高調整':t.type==='reimburse'?'立替の返金':catName(t.categoryId)))}<div class="sub">${methodOf(t)?esc(methodOf(t).name)+(isCredit(t)?(t.settled?'（引落済）':'（未払い）'):''):''}</div></div><b class="${sign(t)>0?'pos':''}">${sign(t)>0?'+':'-'}${yen(Math.abs(t.amount))}</b></div>`).join(''):'<div class="sub">まだ記録がありません</div>'}</div>
+  <div class="card">${recent.length?recent.map(t=>`<div class="row"><div>${t.date.slice(5).replace('-','/')} ${esc(t.memo||(t.type==='transfer'?'移動':t.type==='adjust'?'残高調整':t.type==='reimburse'?(t.pending&&!t.ref?'立替金の入金（保留）':'立替の返金'):catName(t.categoryId)))}<div class="sub">${methodOf(t)?esc(methodOf(t).name)+(isCredit(t)?(t.settled?'（引落済）':'（未払い）'):''):''}</div></div><b class="${sign(t)>0?'pos':''}">${sign(t)>0?'+':'-'}${yen(Math.abs(t.amount))}</b></div>`).join(''):'<div class="sub">まだ記録がありません</div>'}</div>
   <button class="full ghost" style="padding:12px" onclick="setBal('${id}')">残高を合わせる</button>`;
 }
 function advHtml(){
   const list=S.tx.filter(t=>t.type==='expense'&&t.advance&&!t.reimbursed).sort((a,b)=>b.date.localeCompare(a.date)||b.ts-a.ts);
-  if(!list.length)return '';
+  const pend=S.tx.filter(t=>t.type==='reimburse'&&t.pending&&!t.ref).sort((a,b)=>b.date.localeCompare(a.date)||b.ts-a.ts);
   const sum=list.reduce((s,t)=>s+advOf(t),0);
-  return `<h2>立替中（返ってくるお金）</h2><div class="card"><div class="row"><span>返ってくる予定の合計</span><b>${yen(sum)}</b></div>${list.map(t=>reimbEdit&&reimbEdit.id===t.id?
-    `<div style="padding:10px 0;border-bottom:1px solid var(--line)"><div class="sub">${esc(t.memo||catName(t.categoryId))} ${yen(advOf(t))} が返ってきた</div>
-      <label>受け取った金額</label><input id="r_amt" type="number" inputmode="numeric" value="${advOf(t)}">
+  const lab=t=>t.date.slice(5).replace('-','/')+' '+esc(t.memo||catName(t.categoryId));
+  const rows=list.map(t=>reimbEdit&&reimbEdit.id===t.id?
+    `<div style="padding:10px 0;border-bottom:1px solid var(--line)"><div class="sub">${esc(t.memo||catName(t.categoryId))}${t.advAmt==null?' の立替分が入ってきた':' '+yen(advOf(t))+' が返ってきた'}</div>
+      <label>受け取った金額</label><input id="r_amt" type="number" inputmode="numeric" placeholder="0" value="${advOf(t)||''}">
       <label>入金先</label><select id="r_acc">${opts(S.accounts,t.accountId)}</select>
       <div class="inline" style="margin-top:12px"><button onclick="doReimb('${t.id}')">受け取った</button><button class="ghost" style="padding:10px" onclick="reimbEdit=null;render()">やめる</button></div></div>`
-    :`<div class="row"><div>${t.date.slice(5).replace('-','/')} ${esc(t.memo||catName(t.categoryId))}<div class="sub">${esc(accName(t.accountId))}${methodOf(t)?' ・ '+esc(methodOf(t).name):''}${advOf(t)<t.amount?' ・ 支払い '+yen(t.amount)+' のうち':''}</div></div><div style="text-align:right"><div>${yen(advOf(t))}</div><div class="actions" style="justify-content:flex-end;margin-top:4px"><button class="ghost" onclick="editTx('${t.id}')">編集</button><button class="ghost" onclick="startReimb('${t.id}')">返ってきた</button></div></div></div>`).join('')}</div>`;
+    :`<div class="row"><div>${lab(t)}<div class="sub">${esc(accName(t.accountId))}${methodOf(t)?' ・ '+esc(methodOf(t).name):''}${t.advAmt==null?' ・ 立替分の金額が未入力':(advOf(t)<t.amount?' ・ 支払い '+yen(t.amount)+' のうち':'')}</div></div><div style="text-align:right">${t.advAmt==null?'':`<div>${yen(advOf(t))}</div>`}<div class="actions" style="justify-content:flex-end;margin-top:4px"><button class="ghost" onclick="editTx('${t.id}')">編集</button><button class="ghost" onclick="startReimb('${t.id}')">返ってきた</button></div></div></div>`).join('');
+  const prow=pend.map(t=>allocEdit===t.id?
+    `<div style="padding:10px 0;border-bottom:1px solid var(--line)"><div class="sub">保留中の入金 ${yen(t.amount)} を、どの立替にあてますか？</div>${list.length?
+      `<label>立替</label><select id="al_sel">${list.map(a=>`<option value="${a.id}">${lab(a)}${a.advAmt!=null?' '+yen(advOf(a)):'（金額未入力）'}</option>`).join('')}</select><div class="inline" style="margin-top:12px"><button onclick="doAlloc('${t.id}')">あてる</button><button class="ghost" style="padding:10px" onclick="allocEdit=null;render()">やめる</button></div>`
+      :`<div class="sub" style="margin-top:6px">あてられる立替がありません。先に、立替の支出を記録してください。</div><button class="ghost" style="margin-top:8px" onclick="allocEdit=null;render()">閉じる</button>`}</div>`
+    :`<div class="row"><div>${t.date.slice(5).replace('-','/')} 保留中の入金<span class="tag">保留</span><div class="sub">${esc(accName(t.accountId))}</div></div><div style="text-align:right"><div class="pos">+${yen(t.amount)}</div><div class="actions" style="justify-content:flex-end;margin-top:4px"><button class="ghost" onclick="startAlloc('${t.id}')">立替にあてる</button><button class="ghost" onclick="delTx('${t.id}')">削除</button></div></div></div>`).join('');
+  const addForm=pendForm?
+    `<div style="padding:10px 0 0"><div class="sub">立替金の入金を、保留として記録します。<br>収入には数えません。</div><label>入金額</label><input id="pd_amt" type="number" inputmode="numeric" placeholder="0"><label>入金先</label><select id="pd_acc">${opts(S.accounts,S.accounts[0]?.id)}</select><div class="inline" style="margin-top:12px"><button onclick="doPend()">記録する</button><button class="ghost" style="padding:10px" onclick="pendForm=false;render()">やめる</button></div></div>`
+    :`<button class="ghost" style="margin-top:12px" onclick="startPend()">＋ 立替金が入ってきた（保留）</button>`;
+  return `<h2>立替</h2><div class="card">${list.length?`<div class="row"><span>返ってくる予定の合計</span><b>${yen(sum)}</b></div>`:'<div class="sub">立替中の記録はありません</div>'}${rows}${prow}${addForm}</div>`;
 }
-window.startReimb=id=>{reimbEdit={id};render()};
+window.startReimb=id=>{reimbEdit={id};pendForm=false;allocEdit=null;render()};
+window.startPend=()=>{pendForm=true;reimbEdit=null;allocEdit=null;render()};
+window.startAlloc=id=>{allocEdit=id;reimbEdit=null;pendForm=false;render()};
+window.doPend=()=>{
+  const amt=Math.round(+document.getElementById('pd_amt').value);
+  if(!(amt>0))return alert('入金額を入力してください');
+  S.tx.push({id:uid(),ts:Date.now(),type:'reimburse',amount:amt,accountId:document.getElementById('pd_acc').value,date:todayStr(),memo:'',pending:true});
+  pendForm=false;save();render();
+};
+window.doAlloc=pid=>{
+  const p=S.tx.find(x=>x.id===pid),a=S.tx.find(x=>x.id===document.getElementById('al_sel')?.value);
+  if(!p||!a)return;
+  p.ref=a.id;p.pending=false;p.memo=a.memo||'';
+  a.reimbursed=true;a.received=p.amount;if(a.advAmt==null)a.advAmt=Math.min(p.amount,a.amount);
+  allocEdit=null;save();render();
+};
 window.doReimb=id=>{
   const t=S.tx.find(x=>x.id===id);if(!t)return;
   const amt=Math.round(+document.getElementById('r_amt').value);
-  if(!(amt>=0)||isNaN(amt))return alert('金額を入力してください');
+  if(!(amt>=0)||isNaN(amt)||(t.advAmt==null&&!(amt>0)))return alert('金額を入力してください');
   const accountId=document.getElementById('r_acc').value;
   if(amt>0)S.tx.push({id:uid(),ts:Date.now(),type:'reimburse',amount:amt,accountId,date:todayStr(),memo:t.memo||'',ref:id});
+  if(t.advAmt==null)t.advAmt=Math.min(amt,t.amount); // 立替分が未入力だったときは、受け取った金額を立替分にする
   t.reimbursed=true;t.received=amt;reimbEdit=null;save();render();
 };
 function vHome(){
@@ -359,14 +391,14 @@ function vRec(){
     ${f.type==='expense'&&methodsOf(curAcc(f.acc)).length?`<label>支払い方法</label><select id="f_method">${methodsOf(curAcc(f.acc)).map(m=>`<option value="${m.id}" ${m.id===f.method?'selected':''}>${esc(m.name)}</option>`).join('')}</select>`:''}
     ${f.type==='adjust'?'':isT?`<label>移動先</label><select id="f_to">${opts(holders(),f.to)}</select>`:`<label>カテゴリ</label><select id="f_cat">${opts(catsOf(f.type),f.cat,'（あとで決める）')}</select>`}
     ${f.type==='expense'?`<label style="display:flex;gap:10px;align-items:center;font-size:14px;color:var(--text);margin-top:16px"><input type="checkbox" id="f_adv" onchange="toggleAdv()" ${f.adv?'checked':''} ${f.advLocked?'disabled':''}>立替を含む（あとで返ってくるお金）</label><div class="sub" style="margin:2px 2px 0">立替分は、返ってくるまで支出に数えません。<br>返ってきても、収入にはなりません。</div>
-    ${f.adv?`<label>立替分の金額（任意）</label><input id="f_advamt" type="number" inputmode="numeric" min="0" placeholder="空欄なら、全額を立替にします" value="${f.advAmt??''}" ${f.advLocked?'disabled':''}><div class="sub" style="margin:4px 2px 0">自分の分は含めず、ほかの人の分だけ。<br>あとから編集できます。</div>`:''}`:''}
+    ${f.adv?`<label>立替分の金額（任意）</label><input id="f_advamt" type="number" inputmode="numeric" min="0" placeholder="空欄なら、立替には数えません" value="${f.advAmt??''}" ${f.advLocked?'disabled':''}><div class="sub" style="margin:4px 2px 0">自分の分は含めず、ほかの人の分だけ。<br>あとから編集できます。</div>`:''}`:''}
     <label>日付</label><input id="f_date" type="date" value="${f.date||todayStr()}">
     <label>メモ</label><input id="f_memo" placeholder="例：ランチ" value="${esc(f.memo||'')}">
     <button class="full" onclick="addTx()">${f.editId?'更新':'保存'}</button>
     ${f.editId?'<button class="full ghost" style="padding:10px" onclick="cancelEdit()">編集をやめる</button>':''}
   </div>
   <h2>最近の記録</h2>
-  <div class="card">${recent.length?recent.map(t=>`<div class="row"><div>${t.date.slice(5).replace('-','/')} ${esc(t.memo||(t.type==='transfer'?'移動':t.type==='adjust'?'残高調整':t.type==='reimburse'?'立替の返金':catName(t.categoryId)))}${t.type==='adjust'?'<span class="tag">残高</span>':''}${t.type==='reimburse'?'<span class="tag">返金</span>':''}${t.advance?`<span class="tag">立替${t.advAmt!=null?' '+yen(t.advAmt):''}${t.reimbursed?'・返金済':''}</span>`:''}<div class="sub">${esc(accName(t.accountId))}${methodOf(t)?' ・ '+esc(methodOf(t).name)+(isCredit(t)?(t.settled?'（引落済）':'（未払い）'):''):''}${t.type==='transfer'?' → '+esc(accName(t.toId)):''}${t.type!=='transfer'&&t.type!=='adjust'&&t.categoryId?' ・ '+esc(catName(t.categoryId)):''}</div></div>
+  <div class="card">${recent.length?recent.map(t=>`<div class="row"><div>${t.date.slice(5).replace('-','/')} ${esc(t.memo||(t.type==='transfer'?'移動':t.type==='adjust'?'残高調整':t.type==='reimburse'?(t.pending&&!t.ref?'立替金の入金（保留）':'立替の返金'):catName(t.categoryId)))}${t.type==='adjust'?'<span class="tag">残高</span>':''}${t.type==='reimburse'?`<span class="tag">${t.pending&&!t.ref?'保留':'返金'}</span>`:''}${t.advance?`<span class="tag">立替${t.advAmt!=null?' '+yen(t.advAmt):'（金額未入力）'}${t.reimbursed?'・返金済':''}</span>`:''}<div class="sub">${esc(accName(t.accountId))}${methodOf(t)?' ・ '+esc(methodOf(t).name)+(isCredit(t)?(t.settled?'（引落済）':'（未払い）'):''):''}${t.type==='transfer'?' → '+esc(accName(t.toId)):''}${t.type!=='transfer'&&t.type!=='adjust'&&t.categoryId?' ・ '+esc(catName(t.categoryId)):''}</div></div>
     <div style="text-align:right"><b class="${t.type==='income'||t.type==='reimburse'||(t.type==='adjust'&&t.amount>0)?'pos':''}">${t.type==='income'||t.type==='reimburse'?'+':t.type==='expense'?'-':t.type==='adjust'?(t.amount>=0?'+':'-'):''}${yen(Math.abs(t.amount))}</b><div class="actions" style="justify-content:flex-end">${t.type==='adjust'||t.type==='reimburse'?'':`<button class="ghost" onclick="editTx('${t.id}')">編集</button>`}<button class="ghost" onclick="delTx('${t.id}')">削除</button></div></div></div>`).join(''):'<div class="sub">まだ記録がありません</div>'}</div>`;
 }
 window.addTx=()=>{
@@ -599,7 +631,7 @@ window.exportData=async()=>{
 };
 window.importData=el=>{
   const f=el.files[0];if(!f)return;const r=new FileReader();
-  r.onload=()=>{try{const d=JSON.parse(r.result);if(!d.accounts||!d.tx)throw 0;if(confirm('今のデータを上書きします。よろしいですか？')){S=d;migrateV3();save();render()}}catch(e){alert('読み込めませんでした')}};
+  r.onload=()=>{try{const d=JSON.parse(r.result);if(!d.accounts||!d.tx)throw 0;if(confirm('今のデータを上書きします。よろしいですか？')){S=d;migrateV3();migrateV4();save();render()}}catch(e){alert('読み込めませんでした')}};
   r.readAsText(f);
 };
 render();
