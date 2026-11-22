@@ -356,6 +356,8 @@ function vHome(){
   const out=pend.filter(p=>p.type==='expense').reduce((s,p)=>s+p.amount,0);
   const inC=pend.filter(p=>p.type==='income'&&p.certainty==='confirmed').reduce((s,p)=>s+p.amount,0);
   const inP=pend.filter(p=>p.type==='income'&&p.certainty!=='confirmed').reduce((s,p)=>s+p.amount,0);
+  const inL=pend.filter(p=>p.type==='income'&&p.certainty==='likely').reduce((s,p)=>s+p.amount,0);
+  const inH=inP-inL;
   const free=bal-out+inC;
   const ym=todayStr().slice(0,7);
   const byCat={};let monthTotal=0;
@@ -367,7 +369,7 @@ function vHome(){
     <div class="big ${bal<0?'neg':''}">${yen(bal)}</div>
     <div class="sub" style="margin-top:10px">自由に使えるお金 <b class="${free<0?'neg':''}">${yen(free)}</b></div>
     <div class="sub">（総額 ${yen(bal)} − 支出予定 ${yen(out)} + 確定収入 ${yen(inC)}）</div>
-    ${inP?`<div class="sub">見込み・期待の収入 ${yen(inP)} は含めていません</div>`:''}
+    ${inP?`<div class="sub" style="margin-top:8px;display:grid;gap:2px">${inL?`<span>見込みの収入も入れると <b>${yen(free+inL)}</b></span>`:''}${inH?`<span>${inL?'期待の収入まで入れると':'期待の収入も入れると'} <b>${yen(free+inP)}</b></span>`:''}</div>`:''}
   </div>
   ${needBackup()?`<div class="card" style="display:flex;justify-content:space-between;align-items:center;gap:10px"><div class="sub" style="color:var(--text)">${S.lastBackup?'バックアップが1週間以上前です':'まだバックアップがありません'}</div><button class="ghost" onclick="go('set')">バックアップする</button></div>`:''}
   <button class="full" onclick="go('rec')">＋ 記録する</button>
