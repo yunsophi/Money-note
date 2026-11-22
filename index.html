@@ -121,6 +121,9 @@ input[type=checkbox]{-webkit-appearance:none;appearance:none;width:22px!importan
 input[type=checkbox]:checked{background:var(--accent);border-color:var(--accent)}
 input[type=checkbox]:checked::after{content:"";width:6px;height:11px;border:solid var(--card);border-width:0 2.4px 2.4px 0;transform:translateY(-1px) rotate(45deg)}
 input[type=checkbox]:disabled{opacity:.45}
+/* 月別の表 */
+.mgrid{display:grid;grid-template-columns:1fr auto auto;gap:10px 22px;align-items:baseline}
+.mgrid>b,.mgrid>.sub{text-align:right;min-width:78px}
 </style>
 <script>
 // 表示モード（自動／明るい／暗い）。自動は端末の設定に合わせ、選んだ場合はそれを優先する。端末ごとに覚える。
@@ -199,12 +202,14 @@ function migrateV4(){
 migrateV4();
 const needBackup=()=>S.tx.length>0&&(!S.lastBackup||(Date.now()-new Date(S.lastBackup))/864e5>=7);
 const catsOf=type=>S.categories.filter(c=>c.kind===(type==='income'?'income':'expense'));
+let monthSel=null; // 月別画面で見ている月（YYYY-MM）
+let lastReimbAcc=null; // 前回、返金を入れた先（次の初期値にする）
 let detailId=null,mEdit=null,reimbEdit=null,pendForm=false,allocEdit=null; // ホームで開いている口座の詳細
 let tab='home', form={type:'expense'}, pform={type:'expense',certainty:'confirmed'};
 
 const acc=id=>S.accounts.find(a=>a.id===id);
 const cat=id=>S.categories.find(c=>c.id===id);
-const accName=id=>acc(id)?.name??'(削除済)';
+const accName=id=>id===''?'残高に入れない':(acc(id)?.name??'(削除済)');
 const catName=id=>cat(id)?.name??'未分類';
 // 立替分は支出に数えない。自分の分と、返金が足りなかった分だけ支出にする
 const advOf=t=>t.advance&&t.advAmt!=null?Math.min(t.advAmt,t.amount):0; // 立替分（未入力なら、立替には数えない）
@@ -247,9 +252,9 @@ const totalBalance=()=>holders().reduce((s,a)=>s+balance(a.id),0);
 const opts=(list,sel,empty)=>(empty?`<option value="">${empty}</option>`:'')+list.map(x=>`<option value="${x.id}" ${x.id===sel?'selected':''}>${esc(x.name)}</option>`).join('');
 
 function render(){
-  document.getElementById('nav').innerHTML=[['home','ホーム'],['rec','記録'],['plan','予定'],['set','設定']]
+  document.getElementById('nav').innerHTML=[['home','ホーム'],['rec','記録'],['plan','予定'],['month','月別'],['set','設定']]
     .map(([k,l])=>`<button class="${tab===k?'on':''}" onpointerdown="if(event.button===0)go('${k}')" onclick="if(!event.detail)go('${k}')">${l}</button>`).join('');
-  document.getElementById('app').innerHTML={home:vHome,rec:vRec,plan:vPlan,set:vSet}[tab]();
+  document.getElementById('app').innerHTML={home:vHome,rec:vRec,plan:vPlan,month:vMonth,set:vSet}[tab]();
   slideIndicators();
 }
 // 切り替えボタンの「選択中の印」を、前の位置から新しい位置へスライドさせる
@@ -267,7 +272,7 @@ function slideIndicators(){
     put(pos);lastPos[key]=pos;
   });
 }
-window.go=k=>{reimbEdit=null;pendForm=false;allocEdit=null;tab=k;detailId=null;mEdit=null;render();scrollTo(0,0)};
+window.go=k=>{if(k!=='month')monthSel=null;reimbEdit=null;pendForm=false;allocEdit=null;tab=k;detailId=null;mEdit=null;render();scrollTo(0,0)};
 
 window.openAcc=id=>{detailId=id;mEdit=null;render();scrollTo(0,0)};
 window.closeAcc=()=>{detailId=null;mEdit=null;render();scrollTo(0,0)};
@@ -305,7 +310,8 @@ function advHtml(){
   const rows=list.map(t=>reimbEdit&&reimbEdit.id===t.id?
     `<div style="padding:10px 0;border-bottom:1px solid var(--line)"><div class="sub">${esc(t.memo||catName(t.categoryId))}${t.advAmt==null?' の立替分が入ってきた':' '+yen(advOf(t))+' が返ってきた'}</div>
       <label>受け取った金額</label><input id="r_amt" type="number" inputmode="numeric" placeholder="0" value="${advOf(t)||''}">
-      <label>入金先</label><select id="r_acc">${opts(S.accounts,t.accountId)}</select>
+      <label>どこに入りましたか？</label><select id="r_acc">${opts(S.accounts,acc(lastReimbAcc)?lastReimbAcc:t.accountId)}<option value="" ${lastReimbAcc===''?'selected':''}>残高に入れない（相殺・現物など）</option></select>
+      <div class="sub" style="margin:4px 2px 0">口座や財布を選ぶと、その残高が増えます。<br>どれにも入らないときは、いちばん下を選びます。</div>
       <div class="inline" style="margin-top:12px"><button onclick="doReimb('${t.id}')">受け取った</button><button class="ghost" style="padding:10px" onclick="reimbEdit=null;render()">やめる</button></div></div>`
     :`<div class="row"><div>${lab(t)}<div class="sub">${esc(accName(t.accountId))}${methodOf(t)?' ・ '+esc(methodOf(t).name):''}${t.advAmt==null?' ・ 立替分の金額が未入力':(advOf(t)<t.amount?' ・ 支払い '+yen(t.amount)+' のうち':'')}</div></div><div style="text-align:right">${t.advAmt==null?'':`<div>${yen(advOf(t))}</div>`}<div class="actions" style="justify-content:flex-end;margin-top:4px"><button class="ghost" onclick="editTx('${t.id}')">編集</button><button class="ghost" onclick="startReimb('${t.id}')">返ってきた</button></div></div></div>`).join('');
   const prow=pend.map(t=>allocEdit===t.id?
@@ -338,7 +344,7 @@ window.doReimb=id=>{
   const t=S.tx.find(x=>x.id===id);if(!t)return;
   const amt=Math.round(+document.getElementById('r_amt').value);
   if(!(amt>=0)||isNaN(amt)||(t.advAmt==null&&!(amt>0)))return alert('金額を入力してください');
-  const accountId=document.getElementById('r_acc').value;
+  const accountId=document.getElementById('r_acc').value;lastReimbAcc=accountId;
   if(amt>0)S.tx.push({id:uid(),ts:Date.now(),type:'reimburse',amount:amt,accountId,date:todayStr(),memo:t.memo||'',ref:id});
   if(t.advAmt==null)t.advAmt=Math.min(amt,t.amount); // 立替分が未入力だったときは、受け取った金額を立替分にする
   t.reimbursed=true;t.received=amt;reimbEdit=null;save();render();
@@ -477,6 +483,46 @@ function vPlan(){
     <div style="text-align:right"><b class="${x.type==='income'?'pos':''}">${x.type==='income'?'+':'-'}${yen(x.amount)}</b>
     <div class="actions" style="justify-content:flex-end;margin-top:4px"><button class="ghost" onclick="editPlan('${x.id}')">編集</button><button class="ghost" onclick="delPlan('${x.id}')">削除</button></div></div></div>`).join(''):'<div class="sub">予定はありません</div>'}</div>`;
 }
+function vMonth(){
+  const cur=todayStr().slice(0,7),ym=monthSel||cur;
+  const shift=n=>{const [y,m]=ym.split('-').map(Number);const d=new Date(y,m-1+n,1);return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')};
+  const sum=a=>a.reduce((s,x)=>s+x,0);
+  const inM=d=>!!d&&d.startsWith(ym);
+  const plans=[...S.plans,...(S.planLog||[])].filter(p=>inM(p.date));
+  const pOut=sum(plans.filter(p=>p.type==='expense').map(p=>p.amount));
+  const pInAll=plans.filter(p=>p.type==='income');
+  const pIn=sum(pInAll.map(p=>p.amount)),pInC=sum(pInAll.filter(p=>p.certainty==='confirmed').map(p=>p.amount));
+  const exs=S.tx.filter(t=>t.type==='expense'&&inM(t.date)),ins=S.tx.filter(t=>t.type==='income'&&inM(t.date));
+  const aOut=sum(exs.map(spendOf)),aIn=sum(ins.map(t=>t.amount));
+  const advHold=sum(exs.map(advOf).filter(()=>true))-sum(exs.map(t=>t.reimbursed?Math.min(advOf(t),t.received||0):0));
+  const grp=(list,val)=>{const m={};list.forEach(t=>{const v=val(t);if(v)m[t.categoryId||'']=(m[t.categoryId||'']||0)+v});return Object.entries(m).sort((a,b)=>b[1]-a[1])};
+  const bars=(g,total)=>g.map(([k,v])=>`<div class="small-row"><div class="row" style="border:0;padding:2px 0"><span>${k?esc(catName(k)):'未分類'}</span><span>${yen(v)}</span></div><div class="bar"><i style="width:${total?v/total*100:0}%"></i></div></div>`).join('');
+  const [yy,mm]=ym.split('-');
+  const net=(a,b)=>`<b class="${a-b<0?'neg':''}">${yen(a-b)}</b>`;
+  return `
+  <div style="display:flex;justify-content:space-between;align-items:center;margin:6px 0 4px">
+    <button class="ghost" onclick="shiftMonth(-1)" style="padding:8px 16px;font-size:14px">‹</button>
+    <div style="text-align:center"><div style="font-size:18px;font-weight:600">${yy}年${+mm}月</div>${ym!==cur?`<a class="sub" style="cursor:pointer" onclick="monthSel=null;render()">今月に戻る</a>`:'<div class="sub">今月</div>'}</div>
+    <button class="ghost" onclick="shiftMonth(1)" style="padding:8px 16px;font-size:14px">›</button>
+  </div>
+  <h2>予定と実際</h2>
+  <div class="card"><div class="mgrid">
+    <span></span><span class="sub">予定</span><span class="sub">実際</span>
+    <span>収入</span><b class="pos">${yen(pIn)}</b><b class="pos">${yen(aIn)}</b>
+    <span>支出</span><b>${yen(pOut)}</b><b>${yen(aOut)}</b>
+    <span style="border-top:1px solid var(--line);padding-top:10px">収支</span><span style="border-top:1px solid var(--line);padding-top:10px;text-align:right">${net(pIn,pOut)}</span><span style="border-top:1px solid var(--line);padding-top:10px;text-align:right">${net(aIn,aOut)}</span>
+  </div>
+  <div class="sub" style="margin-top:12px">${pIn?`予定の収入のうち、確定は ${yen(pInC)} です。<br>`:''}実際の支出に、立替分は含めません。<br>${advHold>0?`返ってきていない立替：${yen(advHold)}<br>`:''}残高の調整と立替の返金は、収入に含めません。</div></div>
+  <h2>実際の支出の内訳</h2>
+  <div class="card">${exs.length&&aOut?bars(grp(exs,spendOf),aOut):'<div class="sub">この月の支出はありません</div>'}</div>
+  <h2>実際の収入の内訳</h2>
+  <div class="card">${ins.length?bars(grp(ins,t=>t.amount),aIn):'<div class="sub">この月の収入はありません</div>'}</div>`;
+}
+window.shiftMonth=n=>{
+  const cur=todayStr().slice(0,7),ym=monthSel||cur;
+  const [y,m]=ym.split('-').map(Number);const d=new Date(y,m-1+n,1);
+  monthSel=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');render();
+};
 function planSummary(){
   const sum=a=>a.reduce((s,p)=>s+p.amount,0);
   const ex=S.plans.filter(p=>p.type==='expense'), inc=S.plans.filter(p=>p.type==='income');
@@ -524,6 +570,7 @@ window.addPlan=(thenDone)=>{
 window.donePlan=id=>{
   const x=S.plans.find(p=>p.id===id);if(!x)return;
   S.tx.push({id:uid(),ts:Date.now(),type:x.type,amount:x.amount,accountId:x.accountId,methodId:x.methodId,categoryId:x.categoryId,date:todayStr(),memo:x.memo});
+  (S.planLog=S.planLog||[]).push({type:x.type,date:x.date,amount:x.amount,categoryId:x.categoryId,certainty:x.certainty}); // 月別の「予定」に残す控え
   S.plans=S.plans.filter(p=>p.id!==id);save();render();
 };
 window.delPlan=id=>{if(confirm('この予定を削除しますか？')){S.plans=S.plans.filter(p=>p.id!==id);save();render()}};
