@@ -75,6 +75,21 @@ nav button:active{transform:scale(.92)}
 nav .ind{background:var(--accent-bg);box-shadow:0 1px 0 var(--glass-hi) inset}
 @media (prefers-reduced-motion:reduce){button{transition:none}.ind{transition:none}}
 main{padding-top:calc(20px + env(safe-area-inset-top))}
+/* ダークモード：文字と面の差をはっきりさせる */
+@media (prefers-color-scheme:dark){
+:root{--bg:#1b1b19;--card:#292926;--text:#f6f3ec;--sub:#b9b4a9;--line:#3d3c37;--accent:#a6dbc3;--accent-bg:#2f453b;--ink:#f6f3ec;--red:#f4a094;--green:#a6dbc3;--glass:rgba(66,66,60,.70);--glass-line:rgba(255,255,255,.16);--glass-hi:rgba(255,255,255,.20);--shadow:0 8px 24px rgba(0,0,0,.35)}
+body{background-image:radial-gradient(520px 380px at 90% -4%,rgba(143,191,169,.22),transparent 65%),radial-gradient(460px 380px at -8% 38%,rgba(220,170,120,.14),transparent 65%)}
+input,select{background:rgba(255,255,255,.08);color:var(--text)}
+input::placeholder{color:#9a958a}
+.seg{background:rgba(255,255,255,.08)}
+.seg button.on{color:var(--text)}
+nav{background:rgba(52,52,47,.82)}
+button.ghost{color:#d4cfc4}
+.tag{background:#365246;color:#c4eadb}
+.sub{color:var(--sub)}
+.bar{background:#3a4a42}
+button{box-shadow:0 6px 16px rgba(0,0,0,.35),inset 0 1px 0 rgba(255,255,255,.35)}
+}
 </style>
 </head>
 <body>
