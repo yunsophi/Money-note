@@ -106,6 +106,13 @@ button.ghost,.seg{-webkit-backdrop-filter:none;backdrop-filter:none}
 .hero{-webkit-backdrop-filter:none;backdrop-filter:none}
 nav{-webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px)}
 .row[onclick]{transition:background .1s,transform .1s}
+/* ボタンの動き：押した瞬間に反応し、離すとき・切り替わるときに、軽く弾んで「動いた感」を出す */
+button,.row[onclick]{transition:transform .26s cubic-bezier(.34,1.56,.64,1),opacity .15s,box-shadow .2s,background .15s}
+button:active,.row[onclick]:active{transition:transform .05s ease-out,opacity .05s,box-shadow .05s,background .05s;transform:scale(.955)}
+.row[onclick]:active{transform:scale(.99)}
+.ind{transition:left .2s cubic-bezier(.22,1.15,.36,1),width .2s cubic-bezier(.22,1.15,.36,1)}
+nav button,.seg button{transition:background .1s,color .1s,transform .26s cubic-bezier(.34,1.56,.64,1)}
+nav button:active,.seg button:active{transition:transform .05s ease-out;transform:scale(.93)}
 </style>
 <script>
 // 表示モード（自動／明るい／暗い）。自動は端末の設定に合わせ、選んだ場合はそれを優先する。端末ごとに覚える。
@@ -223,7 +230,7 @@ const opts=(list,sel,empty)=>(empty?`<option value="">${empty}</option>`:'')+lis
 
 function render(){
   document.getElementById('nav').innerHTML=[['home','ホーム'],['rec','記録'],['plan','予定'],['set','設定']]
-    .map(([k,l])=>`<button class="${tab===k?'on':''}" onclick="go('${k}')">${l}</button>`).join('');
+    .map(([k,l])=>`<button class="${tab===k?'on':''}" onpointerdown="if(event.button===0)go('${k}')" onclick="if(!event.detail)go('${k}')">${l}</button>`).join('');
   document.getElementById('app').innerHTML={home:vHome,rec:vRec,plan:vPlan,set:vSet}[tab]();
   slideIndicators();
 }
@@ -310,7 +317,7 @@ function vRec(){
   return `
   <div class="card">
     ${f.editId?'<div class="sub" style="margin-bottom:8px">✏️ 記録を編集中</div>':''}
-    <div class="seg">${[['expense','支出'],['income','収入'],['transfer','移動'],['adjust','残高']].map(([k,l])=>`<button class="${f.type===k?'on':''}" onclick="setType('${k}')">${l}</button>`).join('')}</div>
+    <div class="seg">${[['expense','支出'],['income','収入'],['transfer','移動'],['adjust','残高']].map(([k,l])=>`<button class="${f.type===k?'on':''}" onpointerdown="if(event.button===0)setType('${k}')" onclick="if(!event.detail)setType('${k}')">${l}</button>`).join('')}</div>
     ${f.type==='adjust'?'<div class="sub" style="margin-top:8px">口座の残高を登録・修正します。収入や支出には数えません。</div>':''}
     ${f.type==='adjust'&&unpaidOf(curAcc(f.acc)?.id)?`<div class="sub" style="margin-top:4px">銀行アプリの残高を入れてください。クレカ未払い ${yen(unpaidOf(curAcc(f.acc).id))} は自動で考慮します。</div>`:''}
     <label>${f.type==='adjust'?'いまの実際の残高':'金額'}</label><input id="f_amount" type="number" inputmode="numeric" min="0" placeholder="0" value="${f.amount||''}">
@@ -365,7 +372,7 @@ function vPlan(){
   const p=pform,list=[...S.plans].sort((a,b)=>a.date.localeCompare(b.date));
   return `
   <div class="card">
-    <div class="seg">${[['expense','支出予定'],['income','収入予定']].map(([k,l])=>`<button class="${p.type===k?'on':''}" onclick="setPType('${k}')">${l}</button>`).join('')}</div>
+    <div class="seg">${[['expense','支出予定'],['income','収入予定']].map(([k,l])=>`<button class="${p.type===k?'on':''}" onpointerdown="if(event.button===0)setPType('${k}')" onclick="if(!event.detail)setPType('${k}')">${l}</button>`).join('')}</div>
     ${p.editId?'<div class="sub" style="margin-top:8px">✏️ 予定を編集中</div>':''}
     <label>予定日</label><input id="p_date" type="date" value="${p.date||todayStr()}">
     <label>金額</label><input id="p_amount" type="number" inputmode="numeric" min="0" placeholder="0" value="${p.amount||''}">
@@ -437,7 +444,7 @@ window.delPlan=id=>{if(confirm('この予定を削除しますか？')){S.plans=
 function vSet(){
   return `
   <h2>表示</h2>
-  <div class="card"><div class="seg">${[['auto','自動'],['light','明るい'],['dark','暗い']].map(([k,l])=>`<button class="${getTheme()===k?'on':''}" onclick="setTheme('${k}')">${l}</button>`).join('')}</div>
+  <div class="card"><div class="seg">${[['auto','自動'],['light','明るい'],['dark','暗い']].map(([k,l])=>`<button class="${getTheme()===k?'on':''}" onpointerdown="if(event.button===0)setTheme('${k}')" onclick="if(!event.detail)setTheme('${k}')">${l}</button>`).join('')}</div>
     <div class="sub" style="margin-top:10px">「自動」は、iPhoneの設定（ライト／ダーク）に合わせます。</div></div>
   <h2>口座・財布</h2>
   <div class="card">${S.accounts.map(a=>`<div class="row"><div>${esc(a.name)}<div class="sub">${KINDS[a.kind]}</div>${methodsOf(a).length?`<div style="margin-top:6px">${methodsOf(a).map(m=>`<span class="tag" style="margin:0 6px 4px 0;cursor:pointer" onclick="goAcc('${a.id}')">${esc(m.name)}${m.type!=='direct'?` <a onclick="event.stopPropagation();delMethod('${a.id}','${m.id}')" style="cursor:pointer;opacity:.6">×</a>`:''}</span>`).join('')}</div>`:''}</div>
