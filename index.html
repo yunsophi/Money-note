@@ -113,6 +113,9 @@ button:active,.row[onclick]:active{transition:transform .05s ease-out,opacity .0
 .ind{transition:left .2s cubic-bezier(.22,1.15,.36,1),width .2s cubic-bezier(.22,1.15,.36,1)}
 nav button,.seg button{transition:background .1s,color .1s,transform .26s cubic-bezier(.34,1.56,.64,1)}
 nav button:active,.seg button:active{transition:transform .05s ease-out;transform:scale(.93)}
+/* 緑の印は transform で動かし、素早く着く */
+.ind{left:0;top:0;transition:transform .12s cubic-bezier(.2,.9,.3,1);will-change:transform}
+@media (prefers-reduced-motion:reduce){.ind{transition:none}}
 </style>
 <script>
 // 表示モード（自動／明るい／暗い）。自動は端末の設定に合わせ、選んだ場合はそれを優先する。端末ごとに覚える。
@@ -242,9 +245,10 @@ function slideIndicators(){
     const key=c.id==='nav'?'nav':'seg:'+tab;
     const ind=document.createElement('i');ind.className='ind';c.prepend(ind);
     const pos={left:on.offsetLeft,top:on.offsetTop,width:on.offsetWidth,height:on.offsetHeight};
-    const put=p=>{ind.style.left=p.left+'px';ind.style.top=p.top+'px';ind.style.width=p.width+'px';ind.style.height=p.height+'px'};
+    ind.style.width=pos.width+'px';ind.style.height=pos.height+'px';
+    const put=p=>{ind.style.transform='translate3d('+p.left+'px,'+p.top+'px,0)'}; // 位置は transform で動かす（描き直しが軽く、速い）
     const prev=lastPos[key];
-    if(prev&&prev.left!==pos.left){put(prev);void ind.offsetWidth}
+    ind.style.transition='none';put(prev&&prev.left!==pos.left?prev:pos);void ind.offsetWidth;ind.style.transition=''; // まず前の位置（動かないときは今の位置）に置いてから、新しい位置へ動かす
     put(pos);lastPos[key]=pos;
   });
 }
