@@ -246,7 +246,7 @@ window.settleCard=(aid,mid,all)=>{
   const list=S.tx.filter(t=>t.accountId===aid&&isCredit(t)&&methodOf(t).id===mid&&!t.settled&&t.date<=d.trim());
   if(!list.length)return alert('その日までの未払いはありません');
   const sum=list.reduce((s,t)=>s+t.amount,0);
-  if(confirm(list.length+'件・'+yen(sum)+' を引き落とし済みにします。よろしいですか？')){list.forEach(t=>t.settled=true);save();render()}
+  if(confirm(list.length+'件・'+yen(sum)+' を引き落とし済みにします。よろしいですか？')){const b=Date.now();list.forEach(t=>{t.settled=true;t.settleBatch=b});save();render()}
 };
 const methodOf=t=>{if(t.type!=='expense')return null;const ms=methodsOf(acc(t.accountId));return ms.find(m=>m.id===t.methodId)||ms.find(m=>m.type==='direct')||null};
 function balance(id){
@@ -309,7 +309,7 @@ function vAcc(id){
     const v=list.reduce((s,t)=>s+t.amount,0);
     return `<h2>${esc(m.name)}の引き落とし</h2><div class="card"><div class="row"><span>引き落とし待ち</span><b>${yen(v)}</b></div>
     ${list.map(t=>`<div class="row"><div>${t.date.slice(5).replace('-','/')} ${esc(t.memo||catName(t.categoryId))}</div><div style="display:flex;gap:8px;align-items:center"><span>${yen(t.amount)}</span><button class="ghost" onclick="toggleSettled('${t.id}')">引落済</button></div></div>`).join('')}
-    ${v?`<div class="inline" style="margin-top:12px"><button onclick="settleCard('${id}','${m.id}',true)" style="white-space:nowrap;padding:10px 8px">すべて引落済みに</button><button class="ghost" style="padding:10px" onclick="settleCard('${id}','${m.id}')">日付を指定</button></div>`:'<div class="sub" style="margin-top:6px">未払いはありません</div>'}</div>`}).join('')}
+    ${v?`<div class="inline" style="margin-top:12px"><button onclick="settleCard('${id}','${m.id}',true)" style="white-space:nowrap;padding:10px 8px">すべて引落済みに</button><button class="ghost" style="padding:10px" onclick="settleCard('${id}','${m.id}')">日付を指定</button></div>`:'<div class="sub" style="margin-top:6px">未払いはありません</div>'}${settledHtml(id,m.id)}</div>`}).join('')}
   ${a.kind==='bank'||methodsOf(a).length?`<h2>支払い方法</h2><div class="card">${methodsOf(a).map(m=>mEdit&&mEdit.mid===m.id?
     `<div style="padding:10px 0;border-bottom:1px solid var(--line)"><div class="inline"><input id="e_name" value="${esc(m.name)}">${m.type==='direct'?'':`<select id="e_type" style="flex:0 0 110px"><option value="credit" ${m.type==='credit'?'selected':''}>クレカ</option><option value="debit" ${m.type==='debit'?'selected':''}>デビット</option></select>`}</div><div class="inline" style="margin-top:8px"><button onclick="saveMethod('${id}','${m.id}')">保存</button><button class="ghost" style="padding:10px" onclick="mEdit=null;render()">やめる</button></div></div>`
     :`<div class="row"><div>${esc(m.name)}<span class="tag">${MTYPES[m.type]}</span></div><div class="actions"><button class="ghost" onclick="editMethod('${m.id}')">編集</button>${m.type!=='direct'?`<button class="ghost" onclick="delMethod('${id}','${m.id}')">削除</button>`:''}</div></div>`).join('')}
@@ -675,7 +675,25 @@ window.addAcc=()=>{
   S.accounts.push(a);save();render();
 };
 window.goAcc=id=>{tab='home';detailId=id;mEdit=null;render();scrollTo(0,0)};
-window.toggleSettled=id=>{const t=S.tx.find(x=>x.id===id);if(!t)return;t.settled=!t.settled;save();render()};
+window.toggleSettled=id=>{const t=S.tx.find(x=>x.id===id);if(!t)return;t.settled=!t.settled;if(!t.settled)delete t.settleBatch;save();render()};
+// まちがえて引き落とし済みにしたときに、未払いへ戻す
+function settledHtml(aid,mid){
+  const all=S.tx.filter(t=>t.accountId===aid&&isCredit(t)&&methodOf(t).id===mid&&t.settled);
+  if(!all.length)return '';
+  const rec=[...all].sort((a,b)=>b.date.localeCompare(a.date)||b.ts-a.ts).slice(0,10);
+  const lastB=Math.max(0,...all.map(t=>t.settleBatch||0));
+  const bt=lastB?all.filter(t=>t.settleBatch===lastB):[];
+  return `<div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--line)"><div class="sub">引き落とし済み（最近${rec.length}件）</div>
+   ${rec.map(t=>`<div class="row"><div>${t.date.slice(5).replace('-','/')} ${esc(t.memo||catName(t.categoryId))}</div><div style="display:flex;gap:8px;align-items:center"><span>${yen(t.amount)}</span><button class="ghost" onclick="toggleSettled('${t.id}')">未払いに戻す</button></div></div>`).join('')}
+   ${bt.length?`<button class="ghost" style="margin-top:12px;width:100%;white-space:normal;line-height:1.5;padding:9px 14px;font-size:13px" onclick="undoBatch('${aid}','${mid}')">直前にまとめて済みにした分を取り消す<br>（${bt.length}件・${yen(bt.reduce((s,t)=>s+t.amount,0))}）</button>`:''}</div>`;
+}
+window.undoBatch=(aid,mid)=>{
+  const all=S.tx.filter(t=>t.accountId===aid&&isCredit(t)&&methodOf(t).id===mid&&t.settled&&t.settleBatch);
+  if(!all.length)return;
+  const lastB=Math.max(...all.map(t=>t.settleBatch));
+  const bt=all.filter(t=>t.settleBatch===lastB);
+  if(confirm(bt.length+'件・'+yen(bt.reduce((s,t)=>s+t.amount,0))+' を、未払いに戻します。よろしいですか？')){bt.forEach(t=>{t.settled=false;delete t.settleBatch});save();render()}
+};
 window.editMethod=mid=>{mEdit={mid};render()};
 window.saveMethod=(aid,mid)=>{
   const a=acc(aid),m=a.methods.find(x=>x.id===mid);if(!m)return;
