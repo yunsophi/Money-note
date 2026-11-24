@@ -127,6 +127,11 @@ input[type=checkbox]:disabled{opacity:.45}
 /* 拡大・縮小をさせない（ピンチ、ダブルタップ、入力欄を押したときの自動拡大） */
 html{touch-action:pan-x pan-y;-webkit-text-size-adjust:100%;text-size-adjust:100%}
 input,select,textarea{font-size:16px}
+/* メモ欄（複数行） */
+textarea{width:100%;padding:12px 14px;border:1px solid transparent;border-radius:14px;background:var(--bg);color:var(--text);font:inherit;font-size:16px;line-height:1.5;min-height:88px;resize:none;outline:none;transition:border-color .15s}
+textarea:focus{border-color:var(--accent)}
+textarea::placeholder{color:var(--sub)}
+@media (prefers-color-scheme:dark){textarea{background:rgba(255,255,255,.08)}textarea::placeholder{color:#9a9ea4}}
 </style>
 <script>
 // 表示モード（自動／明るい／暗い）。自動は端末の設定に合わせ、選んだ場合はそれを優先する。端末ごとに覚える。
@@ -215,6 +220,7 @@ const cat=id=>S.categories.find(c=>c.id===id);
 const accName=id=>id===''?'残高に入れない':(acc(id)?.name??'(削除済)');
 const catName=id=>cat(id)?.name??'未分類';
 // 立替分は支出に数えない。自分の分と、返金が足りなかった分だけ支出にする
+const certLabel=c=>c==='confirmed'?'確定':c==='likely'?'見込み':'期待';
 const advOf=t=>t.advance&&t.advAmt!=null?Math.min(t.advAmt,t.amount):0; // 立替分（未入力なら、立替には数えない）
 const spendOf=t=>(t.amount-advOf(t))+(t.reimbursed?Math.max(0,advOf(t)-(t.received||0)):0); // 自分の分＋返金が足りなかった分
 const methodsOf=a=>(a&&a.methods)||[];
@@ -479,14 +485,36 @@ function vPlan(){
     <div><label>カテゴリ</label><select id="p_cat">${opts(catsOf(p.type),p.cat,'未分類')}</select></div></div>
     ${p.type==='expense'&&methodsOf(curAcc(p.acc)).length?`<label>支払い方法</label><select id="p_method">${methodsOf(curAcc(p.acc)).map(m=>`<option value="${m.id}" ${m.id===p.method?'selected':''}>${esc(m.name)}</option>`).join('')}</select>`:''}
     ${p.type==='income'?`<label>確度（「確定」だけが自由に使える額に入ります）</label><select id="p_cert">${[['confirmed','確定'],['likely','見込み'],['hope','期待']].map(([k,l])=>`<option value="${k}" ${(p.certainty||'confirmed')===k?'selected':''}>${l}</option>`).join('')}</select>`:''}
+    ${p.type==='income'?`<label>メモ（任意）</label><textarea id="p_note" placeholder="例：どう達成するか、期限">${esc(p.note||'')}</textarea>`:''}
     <button class="full" onclick="addPlan()">${p.editId?'更新':'予定を追加'}</button>
     ${p.editId?`<button class="full" style="margin-top:8px;background:var(--accent)" onclick="addPlan(true)">この内容で実行済みにする</button><button class="full ghost" style="padding:10px;margin-top:8px" onclick="cancelPlanEdit()">編集をやめる</button>`:''}
   </div>
+  ${goalHtml()}
   ${planSummary()}
-  <h2>予定一覧</h2>
-  <div class="card">${list.length?list.map(x=>`<div class="row"><div>${x.date.slice(5).replace('-','/')} ${esc(x.memo||catName(x.categoryId))}${x.type==='income'?`<span class="tag">${x.certainty==='confirmed'?'確定':x.certainty==='likely'?'見込み':'期待'}</span>`:''}<div class="sub">${esc(accName(x.accountId))}${methodOf(x)?' ・ '+esc(methodOf(x).name):''}</div></div>
+  ${monthListHtml()}`;
+}
+function planRow(x){
+  return `<div class="row"><div>${x.date.slice(5).replace('-','/')} ${esc(x.memo||catName(x.categoryId))}${x.type==='income'?`<span class="tag">${certLabel(x.certainty)}</span>`:''}<div class="sub">${esc(accName(x.accountId))}${methodOf(x)?' ・ '+esc(methodOf(x).name):''}</div>${x.note?`<div class="sub" style="white-space:pre-wrap;margin-top:2px">${esc(x.note)}</div>`:''}</div>
     <div style="text-align:right"><b class="${x.type==='income'?'pos':''}">${x.type==='income'?'+':'-'}${yen(x.amount)}</b>
-    <div class="actions" style="justify-content:flex-end;margin-top:4px"><button class="ghost" onclick="editPlan('${x.id}')">編集</button><button class="ghost" onclick="delPlan('${x.id}')">削除</button></div></div></div>`).join(''):'<div class="sub">予定はありません</div>'}</div>`;
+    <div class="actions" style="justify-content:flex-end;margin-top:4px"><button class="ghost" onclick="editPlan('${x.id}')">編集</button><button class="ghost" onclick="delPlan('${x.id}')">削除</button></div></div></div>`;
+}
+// 期待の収入だけを、目標として見る
+function goalHtml(){
+  const g=S.plans.filter(p=>p.type==='income'&&p.certainty==='hope').sort((a,b)=>a.date.localeCompare(b.date));
+  if(!g.length)return '<h2>目標（期待の収入）</h2><div class="card"><div class="sub">収入予定を「期待」で登録すると、ここに目標として並びます</div></div>';
+  const sum=g.reduce((s,x)=>s+x.amount,0);
+  return `<h2>目標（期待の収入）</h2><div class="card"><div class="row"><span>目標の合計</span><b class="pos">+${yen(sum)}</b></div>${g.map(planRow).join('')}</div>`;
+}
+// 予定を月ごとに整理する
+function monthListHtml(){
+  const list=[...S.plans].sort((a,b)=>a.date.localeCompare(b.date));
+  if(!list.length)return '<h2>予定一覧</h2><div class="card"><div class="sub">予定はありません</div></div>';
+  const by={};list.forEach(x=>{const k=x.date.slice(0,7);(by[k]=by[k]||[]).push(x)});
+  const sum=a=>a.reduce((s,x)=>s+x.amount,0);
+  return Object.keys(by).sort().map(ym=>{
+    const arr=by[ym],[y,m]=ym.split('-');
+    return `<h2>${y}年${+m}月の予定</h2><div class="card"><div class="row"><span class="sub">収入 <b class="pos">+${yen(sum(arr.filter(x=>x.type==='income')))}</b></span><span class="sub">支出 <b>-${yen(sum(arr.filter(x=>x.type==='expense')))}</b></span></div>${arr.map(planRow).join('')}</div>`;
+  }).join('');
 }
 function vMonth(){
   const cur=todayStr().slice(0,7),ym=monthSel||cur;
@@ -518,6 +546,11 @@ function vMonth(){
     <span style="border-top:1px solid var(--line);padding-top:10px">収支</span><span style="border-top:1px solid var(--line);padding-top:10px;text-align:right">${net(pIn,pOut)}</span><span style="border-top:1px solid var(--line);padding-top:10px;text-align:right">${net(aIn,aOut)}</span>
   </div>
   <div class="sub" style="margin-top:12px">${pIn?`予定の収入のうち、確定は ${yen(pInC)} です。<br>`:''}実際の支出に、立替分は含めません。<br>${advHold>0?`返ってきていない立替：${yen(advHold)}<br>`:''}残高の調整と立替の返金は、収入に含めません。</div></div>
+  ${(()=>{
+    const mp=S.plans.filter(p=>inM(p.date)).sort((a,b)=>a.date.localeCompare(b.date));
+    const rows=t=>mp.filter(p=>p.type===t).map(p=>`<div class="row"><div>${p.date.slice(5).replace('-','/')} ${esc(p.memo||catName(p.categoryId))}${t==='income'?`<span class="tag">${certLabel(p.certainty)}</span>`:''}${p.note?`<div class="sub" style="white-space:pre-wrap">${esc(p.note)}</div>`:''}</div><b class="${t==='income'?'pos':''}">${t==='income'?'+':'-'}${yen(p.amount)}</b></div>`).join('');
+    return `<h2>この月の収入予定</h2><div class="card">${rows('income')||'<div class="sub">収入予定はありません</div>'}</div><h2>この月の支出予定</h2><div class="card">${rows('expense')||'<div class="sub">支出予定はありません</div>'}</div>`;
+  })()}
   <h2>実際の支出の内訳</h2>
   <div class="card">${exs.length&&aOut?bars(grp(exs,spendOf),aOut):'<div class="sub">この月の支出はありません</div>'}</div>
   <h2>実際の収入の内訳</h2>
@@ -547,17 +580,17 @@ function planSummary(){
 }
 window.setPType=k=>{
   const v=id=>document.getElementById(id)?.value;
-  pform={...pform,type:k,cat:'',amount:v('p_amount'),date:v('p_date'),memo:v('p_memo'),acc:v('p_acc')||pform.acc};
+  pform={...pform,type:k,cat:'',amount:v('p_amount'),date:v('p_date'),memo:v('p_memo'),note:v('p_note')??pform.note,acc:v('p_acc')||pform.acc};
   render();
 };
 window.setPAcc=()=>{
   const v=id=>document.getElementById(id)?.value;
-  pform={...pform,amount:v('p_amount'),date:v('p_date'),memo:v('p_memo'),cat:v('p_cat'),acc:v('p_acc'),method:'',certainty:v('p_cert')||pform.certainty};
+  pform={...pform,amount:v('p_amount'),date:v('p_date'),memo:v('p_memo'),cat:v('p_cat'),acc:v('p_acc'),method:'',note:v('p_note')??pform.note,certainty:v('p_cert')||pform.certainty};
   render();
 };
 window.editPlan=id=>{
   const x=S.plans.find(p=>p.id===id);if(!x)return;
-  pform={type:x.type,acc:x.accountId,cat:x.categoryId,method:x.methodId,certainty:x.certainty,amount:x.amount,date:x.date,memo:x.memo,editId:id};
+  pform={type:x.type,acc:x.accountId,cat:x.categoryId,method:x.methodId,note:x.note,certainty:x.certainty,amount:x.amount,date:x.date,memo:x.memo,editId:id};
   tab='plan';render();scrollTo(0,0);
 };
 window.cancelPlanEdit=()=>{pform={type:pform.type,acc:pform.acc,cat:pform.cat,certainty:'confirmed'};render()};
@@ -567,6 +600,7 @@ window.addPlan=(thenDone)=>{
   const x={id:pform.editId||uid(),type:pform.type,date:document.getElementById('p_date').value||todayStr(),amount,memo:document.getElementById('p_memo').value.trim(),
     accountId:document.getElementById('p_acc').value,categoryId:document.getElementById('p_cat').value,
     certainty:pform.type==='income'?document.getElementById('p_cert').value:'confirmed'};
+  if(pform.type==='income'){const n=(document.getElementById('p_note')?.value||'').trim();if(n)x.note=n}
   const pm=document.getElementById('p_method');if(pm&&pform.type==='expense')x.methodId=pm.value;
   const i=S.plans.findIndex(p=>p.id===x.id);if(i>=0)S.plans[i]=x;else S.plans.push(x);
   pform={type:x.type,acc:x.accountId,cat:x.categoryId,certainty:'confirmed'};
