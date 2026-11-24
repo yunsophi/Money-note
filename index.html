@@ -132,6 +132,11 @@ textarea{width:100%;padding:12px 14px;border:1px solid transparent;border-radius
 textarea:focus{border-color:var(--accent)}
 textarea::placeholder{color:var(--sub)}
 @media (prefers-color-scheme:dark){textarea{background:rgba(255,255,255,.08)}textarea::placeholder{color:#9a9ea4}}
+/* 月を横に並べて切り替える */
+.chips{display:flex;gap:8px;overflow-x:auto;margin:0 -20px 12px;padding:2px 20px 6px;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+.chips::-webkit-scrollbar{display:none}
+.chip{flex:0 0 auto;background:var(--glass);background-image:none;color:var(--sub);border:1px solid var(--glass-line);box-shadow:none;padding:9px 18px;font-size:14px;white-space:nowrap}
+.chip.on{background:var(--ink);color:var(--card);border-color:var(--ink);font-weight:600}
 </style>
 <script>
 // 表示モード（自動／明るい／暗い）。自動は端末の設定に合わせ、選んだ場合はそれを優先する。端末ごとに覚える。
@@ -210,6 +215,7 @@ function migrateV4(){
 migrateV4();
 const needBackup=()=>S.tx.length>0&&(!S.lastBackup||(Date.now()-new Date(S.lastBackup))/864e5>=7);
 const catsOf=type=>S.categories.filter(c=>c.kind===(type==='income'?'income':'expense'));
+let planMonth=null; // 予定の画面で開いている月（YYYY-MM）
 let monthSel=null; // 月別画面で見ている月（YYYY-MM）
 let lastReimbAcc=null; // 前回、返金を入れた先（次の初期値にする）
 let detailId=null,mEdit=null,reimbEdit=null,pendForm=false,allocEdit=null; // ホームで開いている口座の詳細
@@ -265,6 +271,8 @@ function render(){
     .map(([k,l])=>`<button class="${tab===k?'on':''}" onpointerdown="if(event.button===0)go('${k}')" onclick="if(!event.detail)go('${k}')">${l}</button>`).join('');
   document.getElementById('app').innerHTML={home:vHome,rec:vRec,plan:vPlan,month:vMonth,set:vSet}[tab]();
   slideIndicators();
+  const chip=document.querySelector('.chips .chip.on');
+  if(chip){const bar=chip.parentElement;bar.scrollLeft=chip.offsetLeft-bar.clientWidth/2+chip.offsetWidth/2}
 }
 // 切り替えボタンの「選択中の印」を、前の位置から新しい位置へスライドさせる
 const lastPos={};
@@ -510,11 +518,13 @@ function monthListHtml(){
   const list=[...S.plans].sort((a,b)=>a.date.localeCompare(b.date));
   if(!list.length)return '<h2>予定一覧</h2><div class="card"><div class="sub">予定はありません</div></div>';
   const by={};list.forEach(x=>{const k=x.date.slice(0,7);(by[k]=by[k]||[]).push(x)});
+  const keys=Object.keys(by).sort(),cur=todayStr().slice(0,7),curY=cur.slice(0,4);
+  const sel=planMonth&&by[planMonth]?planMonth:(keys.find(k=>k>=cur)||keys[keys.length-1]);
   const sum=a=>a.reduce((s,x)=>s+x.amount,0);
-  return Object.keys(by).sort().map(ym=>{
-    const arr=by[ym],[y,m]=ym.split('-');
-    return `<h2>${y}年${+m}月の予定</h2><div class="card"><div class="row"><span class="sub">収入 <b class="pos">+${yen(sum(arr.filter(x=>x.type==='income')))}</b></span><span class="sub">支出 <b>-${yen(sum(arr.filter(x=>x.type==='expense')))}</b></span></div>${arr.map(planRow).join('')}</div>`;
-  }).join('');
+  const arr=by[sel],[y,m]=sel.split('-');
+  const chips=keys.map(k=>{const [yy,mm]=k.split('-');return `<button class="chip ${k===sel?'on':''}" onclick="planMonth='${k}';render()">${yy!==curY?yy+'年':''}${+mm}月</button>`}).join('');
+  return `<h2>予定一覧</h2><div class="chips">${chips}</div>
+  <div class="card"><div style="font-weight:600;margin-bottom:4px">${y}年${+m}月の予定</div><div class="row"><span class="sub">収入 <b class="pos">+${yen(sum(arr.filter(x=>x.type==='income')))}</b></span><span class="sub">支出 <b>-${yen(sum(arr.filter(x=>x.type==='expense')))}</b></span></div>${arr.map(planRow).join('')}</div>`;
 }
 function vMonth(){
   const cur=todayStr().slice(0,7),ym=monthSel||cur;
